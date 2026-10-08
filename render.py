@@ -1,6 +1,7 @@
 """Génère le jardin solarpunk (SVG isométrique animé) à partir de data/contributions.json."""
 import json
 import math
+import os
 import random
 from datetime import date
 from pathlib import Path
@@ -15,12 +16,17 @@ PLANT_K = 1.3             # échelle des plantes par rapport au dessin de base
 COLS, ROWS_PER_YEAR = 54, 7
 MARGIN, TOP = 50, 150
 
-SEASONS = {  # mois -> saison (hémisphère nord)
+NORTH = {  # mois -> saison (hémisphère nord)
     12: "winter", 1: "winter", 2: "winter",
     3: "spring", 4: "spring", 5: "spring",
     6: "summer", 7: "summer", 8: "summer",
     9: "autumn", 10: "autumn", 11: "autumn",
 }
+HEMISPHERE = os.environ.get("GARDEN_HEMISPHERE", "north").strip().lower()
+if HEMISPHERE not in ("north", "south"):
+    raise SystemExit(f"GARDEN_HEMISPHERE doit valoir north ou south, pas {HEMISPHERE!r}")
+# Au sud, les saisons sont celles du nord décalées de six mois.
+SEASONS = NORTH if HEMISPHERE == "north" else {m: NORTH[(m + 5) % 12 + 1] for m in NORTH}
 SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver"}
 
 # ground, side, canopy, canopy2, accent

@@ -24,7 +24,7 @@ python fetch.py   # récupère les contributions des N dernières années (GITHU
 python render.py  # écrit assets/garden-light.svg et assets/garden-dark.svg
 ```
 
-Aucune dépendance, Python 3 suffit. `GITHUB_LOGIN` change le compte lu (par défaut `Shagshag`).
+Aucune dépendance, Python 3 suffit. `GARDEN_HEMISPHERE=south` décale les saisons de six mois pour l'hémisphère sud (`north` par défaut). `GITHUB_LOGIN` change le compte lu (par défaut `Shagshag`).
 
 ## Mise en ligne
 
