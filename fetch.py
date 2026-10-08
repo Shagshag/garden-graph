@@ -1,4 +1,4 @@
-"""Récupère le calendrier de contributions GitHub et l'écrit dans data/contributions.json."""
+"""Fetch the GitHub contribution calendar and write it to data/contributions.json."""
 import json
 import os
 import subprocess
@@ -10,11 +10,11 @@ from pathlib import Path
 LOGIN = os.environ.get("GITHUB_LOGIN", "Shagshag")
 OUT = Path(__file__).parent / "data" / "contributions.json"
 
-YEARS = int(os.environ.get("GARDEN_YEARS", "5"))  # nombre d'années calendaires, l'année en cours incluse
+YEARS = int(os.environ.get("GARDEN_YEARS", "5"))  # number of calendar years to fetch, the current one included
 
 
 def build_query(years):
-    """Une requête avec un champ aliasé par année : contributionsCollection est limité à 12 mois."""
+    """One query with one aliased field per year: contributionsCollection is limited to 12 months."""
     fields = "".join(
         f'y{y}: contributionsCollection(from: "{y}-01-01T00:00:00Z", to: "{y}-12-31T23:59:59Z") {{'
         "contributionCalendar { weeks { contributionDays { date contributionCount } } } } "
@@ -27,11 +27,11 @@ def get_token():
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
         return token
-    # En local, on réutilise la session de la CLI gh.
+    # Locally, reuse the gh CLI session.
     try:
         return subprocess.check_output(["gh", "auth", "token"], text=True).strip()
     except (OSError, subprocess.CalledProcessError):
-        sys.exit("Aucun token : définis GITHUB_TOKEN ou connecte-toi avec `gh auth login`.")
+        sys.exit("No token: set GITHUB_TOKEN or sign in with `gh auth login`.")
 
 
 def main():
@@ -46,11 +46,11 @@ def main():
         with urllib.request.urlopen(req, timeout=60) as resp:
             payload = json.load(resp)
         user = payload["data"]["user"]
-    except Exception as exc:  # API en panne : on garde les données précédentes
-        print(f"Échec de la récupération ({exc}), données précédentes conservées.")
+    except Exception as exc:  # API down: keep the previous data
+        print(f"Fetch failed ({exc}), keeping the previous data.")
         return
 
-    counts = {}  # dédoublonnage : une semaine à cheval sur deux années apparaît dans les deux
+    counts = {}  # dedupe: a week spanning two years appears in both
     for y in years:
         for week in user[f"y{y}"]["contributionCalendar"]["weeks"]:
             for d in week["contributionDays"]:
@@ -62,7 +62,7 @@ def main():
         json.dumps({"login": LOGIN, "years": years, "total": sum(counts.values()), "days": days}, indent=1),
         encoding="utf-8",
     )
-    print(f"{len(days)} jours, {sum(counts.values())} contributions sur {len(years)} ans.")
+    print(f"{len(days)} days, {sum(counts.values())} contributions over {len(years)} years.")
 
 
 if __name__ == "__main__":
