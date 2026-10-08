@@ -20,6 +20,7 @@ jobs:
         env:
           GITHUB_LOGIN: Shagshag
           GARDEN_CLIMATE: temperate-north  # voir le README pour les autres climats
+          GARDEN_LANG: fr  # fr, en, ja ou hi
           # Optionnel : un token personnel (read:user) pour compter aussi les contributions privées
           GITHUB_TOKEN: ${{ secrets.GH_STATS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |

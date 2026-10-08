@@ -1,10 +1,13 @@
 """Génère le jardin solarpunk (SVG isométrique animé) à partir de data/contributions.json."""
+import html
 import json
 import math
 import os
 import random
 from datetime import date
 from pathlib import Path
+
+import i18n
 
 ROOT = Path(__file__).parent
 # Géométrie, recalculée par layout() selon le nombre d'années
@@ -57,11 +60,17 @@ if not CLIMATE:  # GARDEN_HEMISPHERE reste accepté : c'est l'ancien nom du rég
 if CLIMATE not in CLIMATES:
     raise SystemExit(f"GARDEN_CLIMATE doit valoir {', '.join(CLIMATES)}, pas {CLIMATE!r}")
 SEASONS, LEGEND = CLIMATES[CLIMATE]
-SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver",
-                "cool": "Saison fraîche", "hot": "Saison chaude", "monsoon": "Mousson", "postmonsoon": "Après-mousson",
-                "wet": "Saison des pluies", "dry": "Saison sèche",
-                "mild": "Hiver doux", "plum": "Pluies de printemps", "humid": "Été humide", "clear": "Automne clair",
-                "sakura": "Sakura", "tsuyu": "Tsuyu (pluies)", "earth": "À venir"}
+LANG = os.environ.get("GARDEN_LANG", "fr").strip().lower()
+if LANG not in i18n.STRINGS:
+    raise SystemExit(f"GARDEN_LANG doit valoir {', '.join(i18n.STRINGS)}, pas {LANG!r}")
+T = i18n.STRINGS[LANG]
+FONT_STACK = T["fonts"] + 'ui-sans-serif,system-ui,"Segoe UI",Helvetica,Arial,sans-serif'
+
+
+def say(key, **values):
+    """Phrase traduite avec ses zones de remplacement, échappée pour le SVG."""
+    return html.escape(T[key].format(**values), quote=False)
+
 
 # Par saison : couleurs (sol, tranche, feuillage, feuillage 2, accent) et façon de dessiner les plantes.
 # heads : fleurs possibles ; blossom/fruit : points sur les arbres ; tree : feuillu ou sapin ; shrub : arbuste
@@ -310,13 +319,11 @@ def gardener(th, start, end, dur):
         '</g></g></g>')
 
 
-MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
-
-
 def today_label(x, y, iso, th):
-    text = f"{int(iso[8:])} {MOIS[int(iso[5:7]) - 1]}"
+    text = say("date", day=int(iso[8:]), month=T["months"][int(iso[5:7]) - 1])
+    w = i18n.text_width(text, 10.5) + 16
     fill, ink = ("#ffe9a8", "#1b2b3a") if th.dark else ("#ffffff", "#2c4a3a")
-    return (f'<g><rect x="{f(x - 21)}" y="{f(y - 11)}" width="42" height="16" rx="8" fill="{fill}" opacity=".75"/>'
+    return (f'<g><rect x="{f(x - w / 2)}" y="{f(y - 11)}" width="{f(w)}" height="16" rx="8" fill="{fill}" opacity=".75"/>'
             f'<text x="{f(x)}" y="{f(y)}" font-size="10.5" font-weight="700" text-anchor="middle" fill="{ink}">{text}</text></g>')
 
 
@@ -364,8 +371,8 @@ def render(data, dark):
     maxc = max((d["count"] for d in days), default=1) or 1
     rng_sky = random.Random(7)
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
-           f'font-family="ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial,sans-serif">',
-           f'<title>Jardin de contributions de {data["login"]}</title><style>{STYLE}</style>', sky(th, rng_sky)]
+           f"font-family='{FONT_STACK}'>",
+           f'<title>{say("svg_title", login=data["login"])}</title><style>{STYLE}</style>', sky(th, rng_sky)]
 
     cells = []
     for d, level in zip(days, lv):
@@ -427,9 +434,9 @@ def render(data, dark):
     out.append(today_label(cx, cy - 44, today, th))
 
     # en-tête et légende
-    out.append(f'<text x="30" y="46" font-size="22" font-weight="700" fill="{th.text}">Le jardin de {data["login"]}</text>')
+    out.append(f'<text x="30" y="46" font-size="22" font-weight="700" fill="{th.text}">{say("title", login=data["login"])}</text>')
     out.append(f'<text x="30" y="68" font-size="13" fill="{th.text}" opacity=".8">'
-               f'{data["total"]} contributions, de {years[0]} à {years[-1]}</text>')
+               f'{say("subtitle", total=i18n.number(data["total"], LANG), first=years[0], last=years[-1])}</text>')
     for i, y in enumerate(years):  # étiquette d'année le long du bord gauche
         mid = i * ROWS_PER_YEAR + 3
         out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
@@ -438,9 +445,9 @@ def render(data, dark):
     for i, s in enumerate([*LEGEND, "earth"]):
         y = ly + i * 18
         out.append(circle(lx + 5, y, 5, th.c(PALETTE[s]["ground"]), f' stroke="{th.c(PALETTE[s]["side"])}"'))
-        out.append(f'<text x="{lx + 18}" y="{y + 4}" font-size="12" fill="{th.text}">{SEASON_LABEL[s]}</text>')
+        out.append(f'<text x="{lx + 18}" y="{y + 4}" font-size="12" fill="{th.text}">{html.escape(T['seasons'][s])}</text>')
     out.append(f'<text x="{W - 30}" y="{H - 24}" font-size="11" text-anchor="end" fill="{th.text}" opacity=".7">'
-               f'pousse, fleur, arbre, éolienne : plus on contribue, plus ça grandit</text>')
+               f'{say("footer")}</text>')
     out.append("</svg>")
     return "".join(out)
 
