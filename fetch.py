@@ -52,7 +52,7 @@ def main():
     req = urllib.request.Request(
         "https://api.github.com/graphql",
         data=body,
-        headers={"Authorization": f"bearer {get_token()}", "User-Agent": "solargraph"},
+        headers={"Authorization": f"bearer {get_token()}", "User-Agent": "garden-graph"},
     )
     try:
         with urllib.request.urlopen(req, timeout=60) as resp:

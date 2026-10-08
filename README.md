@@ -5,7 +5,7 @@
   </picture>
 </p>
 
-# solargraph
+# garden-graph
 
 [English](#english) · [Français](#français)
 
