@@ -42,6 +42,12 @@ Aucune dépendance, Python 3 suffit. `GITHUB_LOGIN` change le compte lu (par dé
 
 Les mois sont des moyennes (au Japon, juillet et septembre sont coupés au 15) : une région précise (côte est de l'Inde, Kerala...) peut avoir ses pluies à d'autres dates.
 
+## Langues
+
+`GARDEN_LANG` choisit la langue des textes : `fr` (par défaut), `en`, `ja` ou `hi`. Les phrases (titre, sous-titre, légende, date du jour) sont des modèles complets avec des zones de remplacement, pas des mots assemblés, dans [i18n.py](i18n.py). Les nombres suivent l'usage local (« 3 677 », « 3,677 », et le groupement indien « 12,34,567 » en hindi). Pour ajouter une langue, copier une entrée de `STRINGS` et la traduire.
+
+Les textes japonais et hindi n'ont pas été relus par un locuteur natif.
+
 ## Mise en ligne
 
 Pousse ce dépôt sur `Shagshag/Shagshag` pour que le README s'affiche sur ton profil. La GitHub Action `.github/workflows/garden.yml` régénère le jardin chaque jour. Pour inclure les contributions privées, ajoute un secret `GH_STATS_TOKEN` (token avec `read:user`) et active « Private contributions » dans les réglages du profil.
