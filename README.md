@@ -71,6 +71,10 @@ Months are averages (in Japan, July and September are split at the 15th). A spec
 
 Fonts are not embedded in the SVG, so Japanese and Hindi need a matching font on the viewer's machine.
 
+### License
+
+[MIT](LICENSE).
+
 ## Français
 
 Votre graphe de contributions GitHub, transformé en jardin solarpunk isométrique. Une parcelle par jour, un bloc par année (5 par défaut, `GARDEN_YEARS` pour changer), une saison selon la date. Un petit jardinier se promène autour de la parcelle du jour.
@@ -132,3 +136,7 @@ Les mois sont des moyennes (au Japon, juillet et septembre sont coupés au 15) :
 `GARDEN_LANG` choisit la langue du titre, du sous-titre, de la légende et de la date. Les phrases sont des modèles complets avec des zones de remplacement (`{login}`, `{total}`, `{first}`, `{last}`...), pas des mots assemblés, dans [i18n.py](i18n.py). Les nombres suivent l'usage local (« 3 677 », « 3,677 », et le groupement indien « 12,34,567 » en hindi). Pour ajouter une langue, copiez une entrée de `STRINGS` et traduisez-la. Les textes japonais et hindi n'ont pas été relus par un locuteur natif, les corrections sont les bienvenues.
 
 Les polices ne sont pas embarquées dans le SVG : le japonais et l'hindi demandent une police adaptée sur la machine du visiteur.
+
+### Licence
+
+[MIT](LICENSE).
