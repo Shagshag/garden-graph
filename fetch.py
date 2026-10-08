@@ -7,7 +7,6 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
-LOGIN = os.environ.get("GITHUB_LOGIN", "Shagshag")
 OUT = Path(__file__).parent / "data" / "contributions.json"
 
 YEARS = int(os.environ.get("GARDEN_YEARS", "5"))  # number of calendar years to fetch, the current one included
@@ -23,6 +22,18 @@ def build_query(years):
     return "query($login: String!) { user(login: $login) { " + fields + "} }"
 
 
+def get_login():
+    """Whose contributions to read: GITHUB_LOGIN, else the repository owner (in Actions), else the `gh` user."""
+    login = os.environ.get("GITHUB_LOGIN") or os.environ.get("GITHUB_REPOSITORY_OWNER")
+    if login:
+        return login.strip()
+    try:
+        login = subprocess.check_output(["gh", "api", "user", "--jq", ".login"], text=True).strip()
+    except (OSError, subprocess.CalledProcessError):
+        login = ""
+    return login or sys.exit("No GitHub username: set GITHUB_LOGIN (or sign in with `gh auth login`).")
+
+
 def get_token():
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
@@ -35,8 +46,9 @@ def get_token():
 
 
 def main():
+    login = get_login()
     years = list(range(date.today().year - YEARS + 1, date.today().year + 1))
-    body = json.dumps({"query": build_query(years), "variables": {"login": LOGIN}}).encode()
+    body = json.dumps({"query": build_query(years), "variables": {"login": login}}).encode()
     req = urllib.request.Request(
         "https://api.github.com/graphql",
         data=body,
@@ -59,7 +71,7 @@ def main():
     days = [{"date": k, "count": v} for k, v in sorted(counts.items())]
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(
-        json.dumps({"login": LOGIN, "years": years, "total": sum(counts.values()), "days": days}, indent=1),
+        json.dumps({"login": login, "years": years, "total": sum(counts.values()), "days": days}, indent=1),
         encoding="utf-8",
     )
     print(f"{len(days)} days, {sum(counts.values())} contributions over {len(years)} years.")

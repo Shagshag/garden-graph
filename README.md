@@ -26,17 +26,17 @@ Days that have not happened yet are packed earth. The output is plain SVG with C
 ### Quick start
 
 1. Copy this repository (fork it, or create `<your-login>/<your-login>` to get a profile README) and enable GitHub Actions.
-2. In [`.github/workflows/garden.yml`](.github/workflows/garden.yml), set `GITHUB_LOGIN` to your username and pick your climate and language (see below).
+2. In [`.github/workflows/garden.yml`](.github/workflows/garden.yml), pick your climate and language (see below). The garden is drawn for the owner of the repository, set `GITHUB_LOGIN` only to show someone else's contributions.
 3. Run the **Update garden** workflow once from the Actions tab. It then refreshes the garden every day and commits only when something changed.
 
 To run it locally:
 
 ```bash
-GITHUB_LOGIN=your-login python fetch.py   # fetch contributions (GITHUB_TOKEN, or your `gh` session)
-GITHUB_LOGIN=your-login python render.py  # write assets/garden-light.svg and assets/garden-dark.svg
+python fetch.py   # fetch contributions (needs GITHUB_TOKEN or a `gh` session)
+python render.py  # write assets/garden-light.svg and assets/garden-dark.svg
 ```
 
-`GITHUB_LOGIN` defaults to `Shagshag`, so set it. To also count private contributions, add a secret `GH_STATS_TOKEN` (a token with `read:user`) and enable "Private contributions" in your profile settings.
+Locally, the username comes from `GITHUB_LOGIN`, otherwise from your `gh` session. To also count private contributions, add a secret `GH_STATS_TOKEN` (a token with `read:user`) and enable "Private contributions" in your profile settings.
 
 ### Settings
 
@@ -44,7 +44,7 @@ All settings are environment variables.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `GITHUB_LOGIN` | `Shagshag` | whose contributions to read |
+| `GITHUB_LOGIN` | repository owner in Actions, your `gh` user locally | whose contributions to read |
 | `GARDEN_YEARS` | `5` | number of calendar years, the current one included |
 | `GARDEN_CLIMATE` | `temperate-north` | which seasons the garden follows |
 | `GARDEN_LANG` | `fr` | language of the texts: `fr`, `en`, `ja`, `hi` |
@@ -88,17 +88,17 @@ Les jours à venir sont en terre battue. Le résultat est un SVG avec animations
 ### Démarrage rapide
 
 1. Copiez ce dépôt (fork, ou création de `<votre-login>/<votre-login>` pour avoir un README de profil) et activez GitHub Actions.
-2. Dans [`.github/workflows/garden.yml`](.github/workflows/garden.yml), mettez votre nom d'utilisateur dans `GITHUB_LOGIN` et choisissez votre climat et votre langue (voir plus bas).
+2. Dans [`.github/workflows/garden.yml`](.github/workflows/garden.yml), choisissez votre climat et votre langue (voir plus bas). Le jardin est dessiné pour le propriétaire du dépôt : ne réglez `GITHUB_LOGIN` que pour afficher les contributions de quelqu'un d'autre.
 3. Lancez une fois le workflow **Update garden** depuis l'onglet Actions. Il met ensuite le jardin à jour chaque jour et ne committe que si quelque chose a changé.
 
 En local :
 
 ```bash
-GITHUB_LOGIN=votre-login python fetch.py   # récupère les contributions (GITHUB_TOKEN, ou la session `gh`)
-GITHUB_LOGIN=votre-login python render.py  # écrit assets/garden-light.svg et assets/garden-dark.svg
+python fetch.py   # récupère les contributions (demande GITHUB_TOKEN ou une session `gh`)
+python render.py  # écrit assets/garden-light.svg et assets/garden-dark.svg
 ```
 
-`GITHUB_LOGIN` vaut `Shagshag` par défaut : pensez à le régler. Pour compter aussi les contributions privées, ajoutez un secret `GH_STATS_TOKEN` (token avec `read:user`) et activez « Private contributions » dans les réglages du profil.
+En local, le nom d'utilisateur vient de `GITHUB_LOGIN`, sinon de votre session `gh`. Pour compter aussi les contributions privées, ajoutez un secret `GH_STATS_TOKEN` (token avec `read:user`) et activez « Private contributions » dans les réglages du profil.
 
 ### Réglages
 
@@ -106,7 +106,7 @@ Tous les réglages sont des variables d'environnement.
 
 | Variable | Défaut | Rôle |
 |---|---|---|
-| `GITHUB_LOGIN` | `Shagshag` | le compte dont on lit les contributions |
+| `GITHUB_LOGIN` | propriétaire du dépôt dans Actions, utilisateur `gh` en local | le compte dont on lit les contributions |
 | `GARDEN_YEARS` | `5` | nombre d'années calendaires, l'année en cours incluse |
 | `GARDEN_CLIMATE` | `temperate-north` | les saisons que suit le jardin |
 | `GARDEN_LANG` | `fr` | langue des textes : `fr`, `en`, `ja`, `hi` |
