@@ -1,0 +1,271 @@
+"""Génère le jardin solarpunk (SVG isométrique animé) à partir de data/contributions.json."""
+import json
+import math
+import random
+from datetime import date
+from pathlib import Path
+
+ROOT = Path(__file__).parent
+HW, HH = 11, 5.5          # demi-largeur / demi-hauteur d'une parcelle
+SIDE = 3                  # épaisseur de terre visible
+OX, OY = 110, 130         # origine de la grille à l'écran
+W, H = 740, 540
+
+SEASONS = {  # mois -> saison (hémisphère nord)
+    12: "winter", 1: "winter", 2: "winter",
+    3: "spring", 4: "spring", 5: "spring",
+    6: "summer", 7: "summer", 8: "summer",
+    9: "autumn", 10: "autumn", 11: "autumn",
+}
+SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver"}
+
+# ground, side, canopy, canopy2, accent
+PALETTE = {
+    "spring": dict(ground="#bfe28f", side="#93b86c", leaf="#8fd16a", leaf2="#6dbb5a", accent="#f6a6c1"),
+    "summer": dict(ground="#86d174", side="#5fa551", leaf="#3fae4a", leaf2="#2f9440", accent="#ffd54a"),
+    "autumn": dict(ground="#dcc57d", side="#b39c57", leaf="#e8923a", leaf2="#c4552b", accent="#d9482b"),
+    "winter": dict(ground="#e9f1f5", side="#bccbd3", leaf="#2f6b4f", leaf2="#25573f", accent="#9ccbe8"),
+}
+TRUNK = "#7a5636"
+PANEL = "#2f6fb5"
+NIGHT = "#0b1d2e"
+
+
+def mix(hex_color, other, t):
+    a = [int(hex_color[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(other[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a, b))
+
+
+class Theme:
+    def __init__(self, dark):
+        self.dark = dark
+        self.text = "#cfe3f0" if dark else "#2c4a3a"
+        self.sky = ("#0a1626", "#16304a") if dark else ("#dff3ff", "#fff7e0")
+
+    def c(self, color):
+        return mix(color, NIGHT, 0.55) if self.dark else color
+
+
+def season_of(iso):
+    return SEASONS[int(iso[5:7])]
+
+
+def levels(days):
+    """Niveau 0-4 par jour, par quartiles des jours actifs."""
+    counts = sorted(d["count"] for d in days if d["count"] > 0)
+    if not counts:
+        return [0] * len(days)
+    q = [counts[min(len(counts) - 1, int(len(counts) * p))] for p in (0.25, 0.5, 0.75)]
+    out = []
+    for d in days:
+        n = d["count"]
+        out.append(0 if n == 0 else 1 if n <= q[0] else 2 if n <= q[1] else 3 if n <= q[2] else 4)
+    return out
+
+
+def f(x):
+    return f"{x:.1f}".rstrip("0").rstrip(".")
+
+
+def tile(cx, cy, season, th):
+    p = PALETTE[season]
+    g, s = th.c(p["ground"]), th.c(p["side"])
+    top = f"{f(cx)},{f(cy - HH)} {f(cx + HW)},{f(cy)} {f(cx)},{f(cy + HH)} {f(cx - HW)},{f(cy)}"
+    left = f"{f(cx - HW)},{f(cy)} {f(cx)},{f(cy + HH)} {f(cx)},{f(cy + HH + SIDE)} {f(cx - HW)},{f(cy + SIDE)}"
+    right = f"{f(cx + HW)},{f(cy)} {f(cx)},{f(cy + HH)} {f(cx)},{f(cy + HH + SIDE)} {f(cx + HW)},{f(cy + SIDE)}"
+    return (f'<polygon points="{left}" fill="{mix(s, "#000000", 0.12)}"/>'
+            f'<polygon points="{right}" fill="{s}"/>'
+            f'<polygon points="{top}" fill="{g}"/>')
+
+
+def circle(x, y, r, fill, extra=""):
+    return f'<circle cx="{f(x)}" cy="{f(y)}" r="{f(r)}" fill="{fill}"{extra}/>'
+
+
+def line(x1, y1, x2, y2, stroke, w=1.2):
+    return (f'<line x1="{f(x1)}" y1="{f(y1)}" x2="{f(x2)}" y2="{f(y2)}" '
+            f'stroke="{stroke}" stroke-width="{w}" stroke-linecap="round"/>')
+
+
+def sprout(x, y, season, th, rng):
+    p = PALETTE[season]
+    leaf = th.c(p["leaf"] if season != "winter" else "#4f8f6c")
+    return (line(x, y, x, y - 5, leaf)
+            + f'<ellipse cx="{f(x - 2)}" cy="{f(y - 5)}" rx="2.2" ry="1.2" fill="{leaf}" transform="rotate(-30 {f(x - 2)} {f(y - 5)})"/>'
+            + f'<ellipse cx="{f(x + 2)}" cy="{f(y - 5.5)}" rx="2.2" ry="1.2" fill="{leaf}" transform="rotate(30 {f(x + 2)} {f(y - 5.5)})"/>')
+
+
+def flower(x, y, season, th, rng):
+    p = PALETTE[season]
+    stem = th.c("#4f9a4a")
+    if season == "winter":  # arbuste persistant sous la neige
+        return (circle(x, y - 4, 4.2, th.c(p["leaf"]))
+                + f'<ellipse cx="{f(x)}" cy="{f(y - 7)}" rx="3.6" ry="1.6" fill="{th.c("#ffffff")}"/>')
+    head = {"spring": p["accent"], "summer": rng.choice(["#ffd54a", "#ff8fb1", "#ffffff"]),
+            "autumn": rng.choice(["#e8923a", "#d9482b"])}[season]
+    return (line(x, y, x, y - 8, stem)
+            + circle(x, y - 9, 3.4, th.c(head))
+            + circle(x, y - 9, 1.2, th.c("#ffe28a" if season != "summer" else "#c0702a")))
+
+
+def tree(x, y, count_scale, season, th, rng):
+    p = PALETTE[season]
+    h = 9 + 5 * count_scale
+    trunk = th.c(TRUNK)
+    if season == "winter":  # sapin enneigé
+        body = f'<rect x="{f(x - 1)}" y="{f(y - 4)}" width="2" height="4" fill="{trunk}"/>'
+        for i, (w, off) in enumerate([(8, 4), (6, 4 + h * 0.35), (4, 4 + h * 0.7)]):
+            ty = y - off
+            body += (f'<polygon points="{f(x)},{f(ty - h * 0.5)} {f(x + w)},{f(ty)} {f(x - w)},{f(ty)}" fill="{th.c(p["leaf"])}"/>'
+                     f'<polygon points="{f(x)},{f(ty - h * 0.5)} {f(x + w * 0.45)},{f(ty - h * 0.5 + w * 0.5)} {f(x - w * 0.45)},{f(ty - h * 0.5 + w * 0.5)}" fill="{th.c("#ffffff")}"/>')
+        return body
+    body = f'<rect x="{f(x - 1.2)}" y="{f(y - h)}" width="2.4" height="{f(h)}" fill="{trunk}"/>'
+    cy = y - h - 3
+    body += circle(x - 3, cy + 1.5, 5.2, th.c(p["leaf2"])) + circle(x + 3, cy + 1, 5.2, th.c(p["leaf2"]))
+    body += circle(x, cy - 1.5, 6.4, th.c(p["leaf"]))
+    if season == "spring":
+        for _ in range(4):
+            body += circle(x + rng.uniform(-6, 6), cy + rng.uniform(-6, 3), 1.1, th.c(p["accent"]))
+    elif season == "summer":
+        for _ in range(3):
+            body += circle(x + rng.uniform(-5, 5), cy + rng.uniform(-4, 3), 1.1, th.c("#ff6b5e"))
+    return body
+
+
+def turbine(x, y, count_scale, season, th, rng):
+    """Éolienne + panneau solaire : le plus haut niveau d'activité."""
+    mast = 24 + 8 * count_scale
+    top = y - mast
+    white = th.c("#f4f7f5")
+    dur = rng.uniform(3.5, 6)
+    blades = "".join(line(x, top, x + 7.5 * math.cos(math.radians(a)), top + 7.5 * math.sin(math.radians(a)), white, 1.6)
+                     for a in (-90, 30, 150))
+    out = line(x, y, x, top, th.c("#d7dfdb"), 1.8)
+    out += (f'<g class="spin" style="transform-origin:{f(x)}px {f(top)}px;animation-duration:{dur:.1f}s">{blades}</g>')
+    out += circle(x, top, 1.6, th.c("#8fa39a"))
+    # panneau solaire incliné au pied du mât
+    px, py = x - 7, y + 1
+    pts = f"{f(px - 5)},{f(py)} {f(px + 5)},{f(py - 3)} {f(px + 5)},{f(py + 2)} {f(px - 5)},{f(py + 5)}"
+    panel = th.c("#ffffff") if season == "winter" else th.c(PANEL)
+    out += f'<polygon points="{pts}" fill="{panel}" stroke="{th.c("#9fb7c9")}" stroke-width=".6"/>'
+    out += circle(x + 6, y - 2, 3, th.c(PALETTE[season]["leaf"] if season != "winter" else "#4f8f6c"))
+    if th.dark:
+        out += circle(x, top, 2.6, "#ffe9a8", ' opacity=".35"')
+    return out
+
+
+def plant(level, x, y, season, th, rng, scale):
+    if level == 1:
+        return sprout(x, y, season, th, rng)
+    if level == 2:
+        return flower(x, y, season, th, rng)
+    if level == 3:
+        return f'<g class="sway" style="animation-delay:-{rng.uniform(0, 4):.1f}s">{tree(x, y, scale, season, th, rng)}</g>'
+    return turbine(x, y, scale, season, th, rng)
+
+
+def decor_tuft(x, y, season, th, rng):
+    if season == "winter":
+        return circle(x + rng.uniform(-4, 4), y + rng.uniform(-1, 1), 0.9, th.c("#ffffff"))
+    return line(x, y + 1, x, y - 2.5, th.c(PALETTE[season]["leaf2"]), 1)
+
+
+def sky(th, rng):
+    out = (f'<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">'
+           f'<stop offset="0" stop-color="{th.sky[0]}"/><stop offset="1" stop-color="{th.sky[1]}"/></linearGradient></defs>'
+           f'<rect width="{W}" height="{H}" rx="18" fill="url(#sky)"/>')
+    if th.dark:
+        for _ in range(45):
+            out += (f'<circle cx="{rng.uniform(20, W - 20):.0f}" cy="{rng.uniform(15, 260):.0f}" r="{rng.choice([.6, .9, 1.2])}" fill="#fff" '
+                    f'class="twinkle" style="animation-delay:-{rng.uniform(0, 5):.1f}s"/>')
+        out += circle(W - 90, 78, 22, "#f3eed2") + circle(W - 80, 72, 20, th.sky[0])
+    else:
+        out += circle(W - 90, 78, 44, "#ffe9a8", ' opacity=".35"') + circle(W - 90, 78, 26, "#ffd35c")
+    for cx, cy, s, dur in [(430, 70, 1.0, 70), (250, 100, .7, 95), (600, 150, .8, 80)]:
+        col = "#2a4560" if th.dark else "#ffffff"
+        out += (f'<g class="cloud" style="animation-duration:{dur}s;animation-delay:-{rng.uniform(0, dur):.0f}s" opacity=".85">'
+                f'<ellipse cx="{cx}" cy="{cy}" rx="{34 * s:.0f}" ry="{10 * s:.0f}" fill="{col}"/>'
+                f'<ellipse cx="{cx - 14 * s:.0f}" cy="{cy - 6 * s:.0f}" rx="{16 * s:.0f}" ry="{10 * s:.0f}" fill="{col}"/>'
+                f'<ellipse cx="{cx + 10 * s:.0f}" cy="{cy - 8 * s:.0f}" rx="{18 * s:.0f}" ry="{12 * s:.0f}" fill="{col}"/></g>')
+    return out
+
+
+STYLE = """
+.spin{animation:spin linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.sway{transform-box:fill-box;transform-origin:50% 100%;animation:sway 5s ease-in-out infinite}
+@keyframes sway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
+.cloud{animation:drift linear infinite}
+@keyframes drift{from{transform:translateX(-120px)}to{transform:translateX(220px)}}
+.twinkle{animation:tw 4s ease-in-out infinite}
+@keyframes tw{0%,100%{opacity:.25}50%{opacity:1}}
+.fly{animation:fly 3.5s ease-in-out infinite}
+@keyframes fly{0%,100%{opacity:0}50%{opacity:1}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+"""
+
+
+def render(data, dark):
+    th = Theme(dark)
+    days = data["days"]
+    lv = levels(days)
+    maxc = max((d["count"] for d in days), default=1) or 1
+    rng_sky = random.Random(7)
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
+           f'font-family="ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial,sans-serif">',
+           f'<title>Jardin de contributions de {data["login"]}</title><style>{STYLE}</style>', sky(th, rng_sky)]
+
+    # grille : la première semaine peut être partielle, d'où le décalage par weekday
+    cells = []
+    col, prev_week_day = 0, None
+    for d, level in zip(days, lv):
+        if prev_week_day is not None and d["weekday"] < prev_week_day:
+            col += 1
+        prev_week_day = d["weekday"]
+        cells.append((col, d["weekday"], d, level))
+    cells.sort(key=lambda c: (c[0] + c[1], c[1]))
+
+    flies = []
+    for c, r, d, level in cells:
+        rng = random.Random(d["date"])
+        cx, cy = OX + (c - r) * HW, OY + (c + r) * HH
+        season = season_of(d["date"])
+        out.append(tile(cx, cy, season, th))
+        if level == 0:
+            if rng.random() < 0.3:
+                out.append(decor_tuft(cx + rng.uniform(-4, 4), cy, season, th, rng))
+            continue
+        scale = math.sqrt(d["count"] / maxc)
+        out.append(plant(level, cx, cy, season, th, rng, scale))
+        if dark and level >= 2 and rng.random() < 0.6:
+            flies.append((cx + rng.uniform(-8, 8), cy - rng.uniform(8, 26), rng.uniform(-5, 0)))
+    for x, y, delay in flies:
+        out.append(f'<circle class="fly" cx="{f(x)}" cy="{f(y)}" r="1.3" fill="#fff3a0" style="animation-delay:{delay:.1f}s"/>')
+
+    # en-tête et légende
+    out.append(f'<text x="30" y="46" font-size="22" font-weight="700" fill="{th.text}">Le jardin de {data["login"]}</text>')
+    out.append(f'<text x="30" y="68" font-size="13" fill="{th.text}" opacity=".8">'
+               f'{data["total"]} contributions sur l\'année écoulée</text>')
+    lx, ly = 30, H - 78
+    for i, s in enumerate(["spring", "summer", "autumn", "winter"]):
+        y = ly + i * 18
+        out.append(circle(lx + 5, y, 5, th.c(PALETTE[s]["ground"]), f' stroke="{th.c(PALETTE[s]["side"])}"'))
+        out.append(f'<text x="{lx + 18}" y="{y + 4}" font-size="12" fill="{th.text}">{SEASON_LABEL[s]}</text>')
+    out.append(f'<text x="{W - 30}" y="{H - 24}" font-size="11" text-anchor="end" fill="{th.text}" opacity=".7">'
+               f'pousse, fleur, arbre, éolienne : plus on contribue, plus ça grandit</text>')
+    out.append("</svg>")
+    return "".join(out)
+
+
+def main():
+    data = json.loads((ROOT / "data" / "contributions.json").read_text(encoding="utf-8"))
+    out_dir = ROOT / "assets"
+    out_dir.mkdir(exist_ok=True)
+    for name, dark in (("garden-light.svg", False), ("garden-dark.svg", True)):
+        (out_dir / name).write_text(render(data, dark), encoding="utf-8")
+        print("écrit", out_dir / name)
+
+
+if __name__ == "__main__":
+    main()
