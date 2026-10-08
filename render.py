@@ -6,11 +6,14 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).parent
+# Géométrie, recalculée par layout() selon le nombre d'années
 HW, HH = 14, 7          # demi-largeur / demi-hauteur d'une parcelle
 SIDE = 3                  # épaisseur de terre visible
 OX, OY = 138, 150         # origine de la grille à l'écran
-W, H = 900, 640
+W, H = 1000, 640
 PLANT_K = 1.3             # échelle des plantes par rapport au dessin de base
+COLS, ROWS_PER_YEAR = 54, 7
+MARGIN, TOP = 50, 150
 
 SEASONS = {  # mois -> saison (hémisphère nord)
     12: "winter", 1: "winter", 2: "winter",
@@ -46,6 +49,25 @@ class Theme:
 
     def c(self, color):
         return mix(color, NIGHT, 0.55) if self.dark else color
+
+
+def layout(n_years):
+    """Adapte la taille des parcelles pour que le parterre tienne dans W."""
+    global HW, HH, OX, OY, H, PLANT_K
+    rows = n_years * ROWS_PER_YEAR
+    HW = min(14, (W - 2 * MARGIN) / (COLS + rows))
+    HH = HW / 2
+    PLANT_K = HW / 14 * 1.3
+    OX, OY = MARGIN + rows * HW, TOP
+    H = round(OY + (COLS + rows) * HH + 70)
+
+
+def grid_pos(iso, years):
+    """Colonne = semaine de l'année, ligne = jour de la semaine, un bloc de 7 lignes par année."""
+    d = date.fromisoformat(iso)
+    jan1 = date(d.year, 1, 1)
+    col = ((d - jan1).days + (jan1.weekday() + 1) % 7) // 7
+    return col, years.index(d.year) * ROWS_PER_YEAR + (d.weekday() + 1) % 7
 
 
 def season_of(iso):
@@ -211,6 +233,8 @@ STYLE = """
 def render(data, dark):
     th = Theme(dark)
     days = data["days"]
+    years = sorted({int(d["date"][:4]) for d in days})
+    layout(len(years))
     lv = levels(days)
     maxc = max((d["count"] for d in days), default=1) or 1
     rng_sky = random.Random(7)
@@ -218,14 +242,10 @@ def render(data, dark):
            f'font-family="ui-sans-serif,system-ui,Segoe UI,Helvetica,Arial,sans-serif">',
            f'<title>Jardin de contributions de {data["login"]}</title><style>{STYLE}</style>', sky(th, rng_sky)]
 
-    # grille : la première semaine peut être partielle, d'où le décalage par weekday
     cells = []
-    col, prev_week_day = 0, None
     for d, level in zip(days, lv):
-        if prev_week_day is not None and d["weekday"] < prev_week_day:
-            col += 1
-        prev_week_day = d["weekday"]
-        cells.append((col, d["weekday"], d, level))
+        col, row = grid_pos(d["date"], years)
+        cells.append((col, row, d, level))
     cells.sort(key=lambda c: (c[0] + c[1], c[1]))
 
     flies = []
@@ -249,7 +269,11 @@ def render(data, dark):
     # en-tête et légende
     out.append(f'<text x="30" y="46" font-size="22" font-weight="700" fill="{th.text}">Le jardin de {data["login"]}</text>')
     out.append(f'<text x="30" y="68" font-size="13" fill="{th.text}" opacity=".8">'
-               f'{data["total"]} contributions sur l\'année écoulée</text>')
+               f'{data["total"]} contributions, de {years[0]} à {years[-1]}</text>')
+    for i, y in enumerate(years):  # étiquette d'année le long du bord gauche
+        mid = i * ROWS_PER_YEAR + 3
+        out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
+                   f'text-anchor="end" fill="{th.text}" opacity=".85">{y}</text>')
     lx, ly = 30, H - 78
     for i, s in enumerate(["spring", "summer", "autumn", "winter"]):
         y = ly + i * 18

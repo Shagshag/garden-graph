@@ -7,7 +7,7 @@
 
 # solargraph
 
-Mon graphe de contributions GitHub, transformé en jardin solarpunk isométrique. Une parcelle par jour, une saison selon la date.
+Mon graphe de contributions GitHub, transformé en jardin solarpunk isométrique. Une parcelle par jour, un bloc par année (5 par défaut, `GARDEN_YEARS` pour changer), une saison selon la date.
 
 | Contributions du jour | Plante |
 |---|---|
@@ -20,7 +20,7 @@ Mon graphe de contributions GitHub, transformé en jardin solarpunk isométrique
 ## Utilisation
 
 ```bash
-python fetch.py   # récupère les contributions (GITHUB_TOKEN ou session `gh`)
+python fetch.py   # récupère les contributions des N dernières années (GITHUB_TOKEN ou session `gh`)
 python render.py  # écrit assets/garden-light.svg et assets/garden-dark.svg
 ```
 
