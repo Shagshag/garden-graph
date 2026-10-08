@@ -9,6 +9,7 @@ STRINGS = {
     "fr": dict(
         title="Le jardin de {login}",
         subtitle="{total} contributions, de {first} à {last}",
+        subtitle_year="{total} contributions en {year}",
         footer="pousse, fleur, arbre, éolienne : plus on contribue, plus ça grandit",
         svg_title="Jardin de contributions de {login}",
         date="{day} {month}",
@@ -25,6 +26,7 @@ STRINGS = {
     "en": dict(
         title="{login}'s garden",
         subtitle="{total} contributions, from {first} to {last}",
+        subtitle_year="{total} contributions in {year}",
         footer="sprout, flower, tree, wind turbine: the more you contribute, the more it grows",
         svg_title="Contribution garden of {login}",
         date="{month} {day}",
@@ -41,6 +43,7 @@ STRINGS = {
     "ja": dict(
         title="{login}の庭",
         subtitle="{first}年から{last}年までに{total}件のコントリビューション",
+        subtitle_year="{year}年に{total}件のコントリビューション",
         footer="芽、花、木、風車：コントリビューションが増えるほど、庭は育ちます",
         svg_title="{login}のコントリビューションの庭",
         date="{month}月{day}日",
@@ -57,6 +60,7 @@ STRINGS = {
     "hi": dict(
         title="{login} का बगीचा",
         subtitle="{first} से {last} तक {total} योगदान",
+        subtitle_year="{year} में {total} योगदान",
         footer="अंकुर, फूल, पेड़, पवन चक्की: जितना ज़्यादा योगदान, उतना बड़ा बगीचा",
         svg_title="{login} का योगदान बगीचा",
         date="{day} {month}",

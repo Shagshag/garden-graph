@@ -1,7 +1,14 @@
 <p align="center">
   <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/garden-year-dark.svg">
+    <img alt="Solarpunk garden of the current year, generated from a GitHub contribution graph" src="assets/garden-year-light.svg">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/garden-dark.svg">
-    <img alt="Solarpunk garden generated from a GitHub contribution graph" src="assets/garden-light.svg">
+    <img alt="The same garden over the last five years" src="assets/garden-light.svg">
   </picture>
 </p>
 
@@ -21,7 +28,9 @@ Your GitHub contribution graph, turned into an isometric solarpunk garden. One t
 | quartile 3 | tree (fir in winter) |
 | quartile 4 | wind turbine and solar panel |
 
-Days that have not happened yet are packed earth. The output is plain SVG with CSS and SMIL animations, so it works in a GitHub profile README: a light and a dark version, picked with `<picture>`. No dependencies, Python 3 is enough.
+Days that have not happened yet are packed earth. The output is plain SVG with CSS and SMIL animations, so it works in a GitHub profile README: a light and a dark version, picked with `<picture>`.
+
+Two views are generated: `garden-year-*.svg`, the current year only, folded into two half-years so the tiles are big and readable, and `garden-*.svg`, the overview of the last `GARDEN_YEARS` years, where tiles are smaller. Embed one or both, as above. No dependencies, Python 3 is enough.
 
 ### Quick start
 
@@ -33,7 +42,7 @@ To run it locally:
 
 ```bash
 python fetch.py   # fetch contributions (needs GITHUB_TOKEN or a `gh` session)
-python render.py  # write assets/garden-light.svg and assets/garden-dark.svg
+python render.py  # write the four SVGs in assets/ (year and overview views, light and dark)
 ```
 
 Locally, the username comes from `GITHUB_LOGIN`, otherwise from your `gh` session. To also count private contributions, add a secret `GH_STATS_TOKEN` (a token with `read:user`) and enable "Private contributions" in your profile settings.
@@ -87,7 +96,9 @@ Votre graphe de contributions GitHub, transformé en jardin solarpunk isométriq
 | quartile 3 | arbre (sapin en hiver) |
 | quartile 4 | éolienne et panneau solaire |
 
-Les jours à venir sont en terre battue. Le résultat est un SVG avec animations CSS et SMIL, qui s'affiche dans le README d'un profil GitHub, en version claire et sombre via `<picture>`. Aucune dépendance, Python 3 suffit.
+Les jours à venir sont en terre battue. Le résultat est un SVG avec animations CSS et SMIL, qui s'affiche dans le README d'un profil GitHub, en version claire et sombre via `<picture>`.
+
+Deux vues sont générées : `garden-year-*.svg`, l'année en cours seule, repliée en deux semestres pour que les parcelles soient grandes et lisibles, et `garden-*.svg`, la vue d'ensemble des `GARDEN_YEARS` dernières années, aux parcelles plus petites. Intégrez l'une ou les deux, comme ci-dessus. Aucune dépendance, Python 3 suffit.
 
 ### Démarrage rapide
 
@@ -99,7 +110,7 @@ En local :
 
 ```bash
 python fetch.py   # récupère les contributions (demande GITHUB_TOKEN ou une session `gh`)
-python render.py  # écrit assets/garden-light.svg et assets/garden-dark.svg
+python render.py  # écrit les quatre SVG dans assets/ (vues année et ensemble, claire et sombre)
 ```
 
 En local, le nom d'utilisateur vient de `GITHUB_LOGIN`, sinon de votre session `gh`. Pour compter aussi les contributions privées, ajoutez un secret `GH_STATS_TOKEN` (token avec `read:user`) et activez « Private contributions » dans les réglages du profil.
