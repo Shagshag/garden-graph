@@ -17,6 +17,7 @@ OX, OY = 138, 150         # screen origin of the grid
 W, H = 1000, 640
 PLANT_K = 1.3             # plant scale relative to the base drawing
 COLS, ROWS_PER_YEAR = 54, 7
+FOLD = 2                  # the one-year view is folded into this many blocks (two half-years)
 MARGIN, TOP = 50, 150
 
 NORTH = {  # month -> season (temperate climate, northern hemisphere)
@@ -135,23 +136,30 @@ class Theme:
         return mix(color, NIGHT, 0.55) if self.dark else color
 
 
-def layout(n_years):
-    """Scale the tiles so the whole bed fits in W."""
+def layout(n_blocks, cols):
+    """Scale the tiles so the whole bed fits in W: `n_blocks` blocks of 7 rows, `cols` columns each."""
     global HW, HH, OX, OY, H, PLANT_K
-    rows = n_years * ROWS_PER_YEAR
-    HW = min(14, (W - 2 * MARGIN) / (COLS + rows))
+    rows = n_blocks * ROWS_PER_YEAR
+    HW = min(24, (W - 2 * MARGIN) / (cols + rows))
     HH = HW / 2
     PLANT_K = HW / 14 * 1.3
     OX, OY = MARGIN + rows * HW, TOP
-    H = round(OY + (COLS + rows) * HH + 70)
+    H = round(OY + (cols + rows) * HH + 70)
 
 
-def grid_pos(iso, years):
-    """Column = week of the year, row = day of the week, one block of 7 rows per year."""
+def grid_pos(iso, years, fold=1):
+    """Column = week of the year, row = day of the week, one block of 7 rows per year.
+    With fold > 1 (a single year) the weeks are cut into `fold` consecutive blocks stacked like text lines:
+    a bed 54 weeks long becomes a much more compact, so much larger, one."""
     d = date.fromisoformat(iso)
     jan1 = date(d.year, 1, 1)
     col = ((d - jan1).days + (jan1.weekday() + 1) % 7) // 7
-    return col, years.index(d.year) * ROWS_PER_YEAR + (d.weekday() + 1) % 7
+    weekday = (d.weekday() + 1) % 7
+    if fold > 1:
+        per_block = -(-COLS // fold)
+        block, col = divmod(col, per_block)
+        return col, block * ROWS_PER_YEAR + weekday
+    return col, years.index(d.year) * ROWS_PER_YEAR + weekday
 
 
 def season_of(iso):
@@ -363,13 +371,18 @@ STYLE = """
 """
 
 
-def render(data, dark):
+def render(data, dark, year=None):
+    """Draw every year of the data, or only `year` (bigger tiles: the whole width goes to one year)."""
     th = Theme(dark)
-    days = data["days"]
+    all_days = data["days"]
+    # levels and plant heights always come from all the years, so both views agree on what a day looks like
+    level_of = dict(zip((d["date"] for d in all_days), levels(all_days)))
+    maxc = max((d["count"] for d in all_days), default=1) or 1
+    days = [d for d in all_days if year is None or d["date"].startswith(str(year))]
+    lv = [level_of[d["date"]] for d in days]
     years = sorted({int(d["date"][:4]) for d in days})
-    layout(len(years))
-    lv = levels(days)
-    maxc = max((d["count"] for d in days), default=1) or 1
+    fold = FOLD if year else 1  # a single year is folded into FOLD blocks
+    layout(fold if year else len(years), -(-COLS // fold))
     rng_sky = random.Random(7)
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
            f"font-family='{FONT_STACK}'>",
@@ -377,7 +390,7 @@ def render(data, dark):
 
     cells = []
     for d, level in zip(days, lv):
-        col, row = grid_pos(d["date"], years)
+        col, row = grid_pos(d["date"], years, fold)
         cells.append((col, row, d, level))
     # Days of the current year that have not happened yet: packed earth up to December 31.
     known = {d["date"] for d in days}
@@ -385,7 +398,7 @@ def render(data, dark):
         day = date(y, 1, 1)
         while day.year == y:
             if day.isoformat() not in known:
-                col, row = grid_pos(day.isoformat(), years)
+                col, row = grid_pos(day.isoformat(), years, fold)
                 cells.append((col, row, {"date": day.isoformat(), "count": 0}, -1))
             day = day.fromordinal(day.toordinal() + 1)
     cells.sort(key=lambda c: (c[0] + c[1], c[1]))
@@ -435,9 +448,12 @@ def render(data, dark):
     out.append(today_label(cx, cy - 44, today, th))
 
     # header and legend
+    total = i18n.number(sum(d["count"] for d in days), LANG)
+    subtitle = (say("subtitle_year", total=total, year=year) if year
+                else say("subtitle", total=total, first=years[0], last=years[-1]))
     out.append(f'<text x="30" y="46" font-size="22" font-weight="700" fill="{th.text}">{say("title", login=data["login"])}</text>')
     out.append(f'<text x="30" y="68" font-size="13" fill="{th.text}" opacity=".8">'
-               f'{say("subtitle", total=i18n.number(data["total"], LANG), first=years[0], last=years[-1])}</text>')
+               f'{subtitle}</text>')
     for i, y in enumerate(years):  # year label along the left edge
         mid = i * ROWS_PER_YEAR + 3
         out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
@@ -457,9 +473,13 @@ def main():
     data = json.loads((ROOT / "data" / "contributions.json").read_text(encoding="utf-8"))
     out_dir = ROOT / "assets"
     out_dir.mkdir(exist_ok=True)
-    for name, dark in (("garden-light.svg", False), ("garden-dark.svg", True)):
-        (out_dir / name).write_text(render(data, dark), encoding="utf-8")
-        print("wrote", out_dir / name)
+    latest = max(int(d["date"][:4]) for d in data["days"])
+    # the overview keeps its name, the one-year view is the big, readable one
+    for prefix, year in (("garden", None), ("garden-year", latest)):
+        for theme, dark in (("light", False), ("dark", True)):
+            path = out_dir / f"{prefix}-{theme}.svg"
+            path.write_text(render(data, dark, year), encoding="utf-8")
+            print("wrote", path)
 
 
 if __name__ == "__main__":
