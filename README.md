@@ -1,5 +1,7 @@
 <p align="center">
   <picture>
+    <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="assets/garden-mobile-dark.svg">
+    <source media="(max-width: 600px)" srcset="assets/garden-mobile-light.svg">
     <source media="(prefers-color-scheme: dark)" srcset="assets/garden-year-dark.svg">
     <img alt="Solarpunk garden of the current year, generated from a GitHub contribution graph" src="assets/garden-year-light.svg">
   </picture>
@@ -7,6 +9,7 @@
 
 <p align="center">
   <picture>
+    <source media="(max-width: 600px)" srcset="assets/blank.svg">
     <source media="(prefers-color-scheme: dark)" srcset="assets/garden-dark.svg">
     <img alt="The same garden over the last five years" src="assets/garden-light.svg">
   </picture>
@@ -30,7 +33,9 @@ Your GitHub contribution graph, turned into an isometric solarpunk garden. One t
 
 Days that have not happened yet are packed earth. The output is plain SVG with CSS and SMIL animations, so it works in a GitHub profile README: a light and a dark version, picked with `<picture>`.
 
-Two views are generated: `garden-year-*.svg`, the current year only, folded into two half-years so the tiles are big and readable, and `garden-*.svg`, the overview of the last `GARDEN_YEARS` years, where tiles are smaller. Embed one or both, as above. No dependencies, Python 3 is enough.
+Two views are generated: `garden-year-*.svg`, the current year only, folded into two half-years so the tiles are big and readable, and `garden-*.svg`, the overview of the last `GARDEN_YEARS` years, where tiles are smaller. Embed one or both, as above.
+
+On a phone (viewport up to 600 px wide) GitHub shrinks a 1000 px image to about a third of its size, which makes the text unreadable. A third view, `garden-mobile-*.svg`, is a narrow canvas with big text, and the README swaps to it with a `media="(max-width: 600px)"` source in the `<picture>`. The five-year overview is too fine to read on a phone, so it is replaced there by `blank.svg` (an empty 1 px image). No dependencies, Python 3 is enough.
 
 ### Quick start
 
@@ -42,7 +47,7 @@ To run it locally:
 
 ```bash
 python fetch.py   # fetch contributions (needs GITHUB_TOKEN or a `gh` session)
-python render.py  # write the four SVGs in assets/ (year and overview views, light and dark)
+python render.py  # write the SVGs in assets/ (year, overview and mobile views, light and dark)
 ```
 
 Locally, the username comes from `GITHUB_LOGIN`, otherwise from your `gh` session. To also count private contributions, add a secret `GH_STATS_TOKEN` (a token with `read:user`) and enable "Private contributions" in your profile settings.
@@ -98,7 +103,9 @@ Votre graphe de contributions GitHub, transformé en jardin solarpunk isométriq
 
 Les jours à venir sont en terre battue. Le résultat est un SVG avec animations CSS et SMIL, qui s'affiche dans le README d'un profil GitHub, en version claire et sombre via `<picture>`.
 
-Deux vues sont générées : `garden-year-*.svg`, l'année en cours seule, repliée en deux semestres pour que les parcelles soient grandes et lisibles, et `garden-*.svg`, la vue d'ensemble des `GARDEN_YEARS` dernières années, aux parcelles plus petites. Intégrez l'une ou les deux, comme ci-dessus. Aucune dépendance, Python 3 suffit.
+Deux vues sont générées : `garden-year-*.svg`, l'année en cours seule, repliée en deux semestres pour que les parcelles soient grandes et lisibles, et `garden-*.svg`, la vue d'ensemble des `GARDEN_YEARS` dernières années, aux parcelles plus petites. Intégrez l'une ou les deux, comme ci-dessus.
+
+Sur téléphone (fenêtre jusqu'à 600 px), GitHub réduit une image de 1000 px à environ un tiers, et le texte devient illisible. Une troisième vue, `garden-mobile-*.svg`, est un canevas étroit au texte gros, et le README y bascule avec une source `media="(max-width: 600px)"` dans le `<picture>`. La vue d'ensemble sur cinq ans est trop fine pour être lue sur un téléphone : elle y est remplacée par `blank.svg` (une image vide de 1 px). Aucune dépendance, Python 3 suffit.
 
 ### Démarrage rapide
 
@@ -110,7 +117,7 @@ En local :
 
 ```bash
 python fetch.py   # récupère les contributions (demande GITHUB_TOKEN ou une session `gh`)
-python render.py  # écrit les quatre SVG dans assets/ (vues année et ensemble, claire et sombre)
+python render.py  # écrit les SVG dans assets/ (vues année, ensemble et mobile, claire et sombre)
 ```
 
 En local, le nom d'utilisateur vient de `GITHUB_LOGIN`, sinon de votre session `gh`. Pour compter aussi les contributions privées, ajoutez un secret `GH_STATS_TOKEN` (token avec `read:user`) et activez « Private contributions » dans les réglages du profil.

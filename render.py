@@ -18,6 +18,7 @@ W, H = 1000, 640
 PLANT_K = 1.3             # plant scale relative to the base drawing
 COLS, ROWS_PER_YEAR = 54, 7
 FOLD = 2                  # the one-year view is folded into this many blocks (two half-years)
+FOLD_COMPACT = 3          # ... and into this many on a narrow canvas (phones)
 MARGIN, TOP = 50, 150
 
 NORTH = {  # month -> season (temperate climate, northern hemisphere)
@@ -328,15 +329,17 @@ def gardener(th, start, end, dur):
         '</g></g></g>')
 
 
-def today_label(x, y, iso, th):
+def today_label(x, y, iso, th, size=10.5):
     text = say("date", day=int(iso[8:]), month=T["months"][int(iso[5:7]) - 1])
-    w = i18n.text_width(text, 10.5) + 16
+    w = i18n.text_width(text, size) + 16
     fill, ink = ("#ffe9a8", "#1b2b3a") if th.dark else ("#ffffff", "#2c4a3a")
-    return (f'<g><rect x="{f(x - w / 2)}" y="{f(y - 11)}" width="{f(w)}" height="16" rx="8" fill="{fill}" opacity=".75"/>'
-            f'<text x="{f(x)}" y="{f(y)}" font-size="10.5" font-weight="700" text-anchor="middle" fill="{ink}">{text}</text></g>')
+    return (f'<g><rect x="{f(x - w / 2)}" y="{f(y - 11)}" width="{f(w)}" height="{f(size + 5.5)}" rx="8" fill="{fill}" opacity=".75"/>'
+            f'<text x="{f(x)}" y="{f(y)}" font-size="{size}" font-weight="700" text-anchor="middle" fill="{ink}">{text}</text></g>')
 
 
 def sky(th, rng):
+    sun_x = W - 90 if W >= 800 else W - 55
+    k = W / 1000 if W >= 800 else 0.5  # clouds and sun shrink on the narrow canvas
     out = (f'<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">'
            f'<stop offset="0" stop-color="{th.sky[0]}"/><stop offset="1" stop-color="{th.sky[1]}"/></linearGradient></defs>'
            f'<rect width="{W}" height="{H}" rx="18" fill="url(#sky)"/>')
@@ -345,11 +348,13 @@ def sky(th, rng):
             out += (f'<circle cx="{rng.uniform(20, W - 20):.0f}" cy="{rng.uniform(15, 260):.0f}" r="{rng.choice([.6, .9, 1.2])}" fill="#fff" '
                     f'class="twinkle" style="animation-delay:-{rng.uniform(0, 5):.1f}s"/>')
         out += ('<mask id="moon"><rect width="100%" height="100%" fill="#fff"/>'
-                f'<circle cx="{W - 78}" cy="70" r="20" fill="#000"/></mask>'
-                f'<circle cx="{W - 90}" cy="78" r="22" fill="#f3eed2" mask="url(#moon)"/>')
+                f'<circle cx="{sun_x + 12}" cy="{78 - 8 * k * 2:.0f}" r="{20 * (0.5 + k):.0f}" fill="#000"/></mask>'
+                f'<circle cx="{sun_x}" cy="78" r="{22 * (0.5 + k):.0f}" fill="#f3eed2" mask="url(#moon)"/>')
     else:
-        out += circle(W - 90, 78, 44, "#ffe9a8", ' opacity=".35"') + circle(W - 90, 78, 26, "#ffd35c")
+        out += circle(sun_x, 78, 44 * (0.5 + k), "#ffe9a8", ' opacity=".35"') + circle(sun_x, 78, 26 * (0.5 + k), "#ffd35c")
     for cx, cy, s, dur in [(520, 70, 1.0, 70), (300, 110, .7, 95), (700, 180, .8, 80)]:
+        cx = round(cx * W / 1000)
+        s *= (0.5 + k) if W < 800 else 1
         col = "#2a4560" if th.dark else "#ffffff"
         out += (f'<g class="cloud" style="animation-duration:{dur}s;animation-delay:-{rng.uniform(0, dur):.0f}s" opacity=".85">'
                 f'<ellipse cx="{cx}" cy="{cy}" rx="{34 * s:.0f}" ry="{10 * s:.0f}" fill="{col}"/>'
@@ -371,8 +376,24 @@ STYLE = """
 """
 
 
-def render(data, dark, year=None):
-    """Draw every year of the data, or only `year` (bigger tiles: the whole width goes to one year)."""
+def wrap_legend(keys, width, size):
+    """Legend items laid out left to right, wrapped into rows that fit `width`."""
+    rows, row, x = [], [], 0
+    for key in keys:
+        w = 20 + i18n.text_width(T["seasons"][key], size) + 16
+        if row and x + w > width:
+            rows.append(row)
+            row, x = [], 0
+        row.append((key, x))
+        x += w
+    return rows + [row]
+
+
+def render(data, dark, year=None, compact=False):
+    """Draw every year of the data, or only `year` (bigger tiles: the whole width goes to one year).
+    compact: a narrow canvas with big text for phones, where the desktop image is shrunk to a third of its size."""
+    global W, H, MARGIN, TOP
+    W, MARGIN, TOP = (480, 24, 125) if compact else (1000, 50, 150)
     th = Theme(dark)
     all_days = data["days"]
     # levels and plant heights always come from all the years, so both views agree on what a day looks like
@@ -381,8 +402,11 @@ def render(data, dark, year=None):
     days = [d for d in all_days if year is None or d["date"].startswith(str(year))]
     lv = [level_of[d["date"]] for d in days]
     years = sorted({int(d["date"][:4]) for d in days})
-    fold = FOLD if year else 1  # a single year is folded into FOLD blocks
+    fold = (FOLD_COMPACT if compact else FOLD) if year else 1  # a single year is folded into blocks
     layout(fold if year else len(years), -(-COLS // fold))
+    legend_rows = wrap_legend([*LEGEND, "earth"], W - 2 * MARGIN, 14) if compact else None
+    if compact:  # the legend goes under the bed, in as many rows as needed
+        H += len(legend_rows) * 24 - 30
     rng_sky = random.Random(7)
     out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" '
            f"font-family='{FONT_STACK}'>",
@@ -445,26 +469,38 @@ def render(data, dark, year=None):
     start, end = (-reach[0] * HW / k, -reach[0] * HH / k), (reach[1] * HW / k, reach[1] * HH / k)
     dur = max(4, 5 * (reach[0] + reach[1]))
     out.append(f'<g transform="translate({f(cx)} {f(cy + HH * 0.2)}) scale({k:.2f})">{gardener(th, start, end, dur)}</g>')
-    out.append(today_label(cx, cy - 44, today, th))
+    out.append(today_label(cx, cy - 26 * 1.1 * PLANT_K - 8, today, th, 13 if compact else 10.5))
 
     # header and legend
     total = i18n.number(sum(d["count"] for d in days), LANG)
     subtitle = (say("subtitle_year", total=total, year=year) if year
                 else say("subtitle", total=total, first=years[0], last=years[-1]))
-    out.append(f'<text x="30" y="46" font-size="22" font-weight="700" fill="{th.text}">{say("title", login=data["login"])}</text>')
-    out.append(f'<text x="30" y="68" font-size="13" fill="{th.text}" opacity=".8">'
+    title_size, sub_size, left = (26, 15, MARGIN) if compact else (22, 13, 30)
+    title_y, sub_y = (46, 70) if compact else (46, 68)
+    out.append(f'<text x="{left}" y="{title_y}" font-size="{title_size}" font-weight="700" fill="{th.text}">'
+               f'{say("title", login=data["login"])}</text>')
+    out.append(f'<text x="{left}" y="{sub_y}" font-size="{sub_size}" fill="{th.text}" opacity=".8">'
                f'{subtitle}</text>')
-    for i, y in enumerate(years):  # year label along the left edge
-        mid = i * ROWS_PER_YEAR + 3
-        out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
-                   f'text-anchor="end" fill="{th.text}" opacity=".85">{y}</text>')
-    lx, ly = 30, H - 24 - 18 * len(LEGEND)
-    for i, s in enumerate([*LEGEND, "earth"]):
-        y = ly + i * 18
-        out.append(circle(lx + 5, y, 5, th.c(PALETTE[s]["ground"]), f' stroke="{th.c(PALETTE[s]["side"])}"'))
-        out.append(f'<text x="{lx + 18}" y="{y + 4}" font-size="12" fill="{th.text}">{html.escape(T['seasons'][s])}</text>')
-    out.append(f'<text x="{W - 30}" y="{H - 24}" font-size="11" text-anchor="end" fill="{th.text}" opacity=".7">'
-               f'{say("footer")}</text>')
+    if not compact:
+        for i, y in enumerate(years):  # year label along the left edge
+            mid = i * ROWS_PER_YEAR + 3
+            out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
+                       f'text-anchor="end" fill="{th.text}" opacity=".85">{y}</text>')
+
+    def legend_item(key, x, y, size):
+        p = PALETTE[key]
+        return (circle(x + 5, y, 5, th.c(p["ground"]), f' stroke="{th.c(p["side"])}"')
+                + f'<text x="{x + 18}" y="{y + size / 3:.0f}" font-size="{size}" fill="{th.text}">{html.escape(T["seasons"][key])}</text>')
+
+    if compact:
+        top = H - len(legend_rows) * 24 - 4
+        for r, row in enumerate(legend_rows):
+            out.extend(legend_item(key, MARGIN + x, top + r * 24, 14) for key, x in row)
+    else:
+        ly = H - 24 - 18 * len(LEGEND)
+        out.extend(legend_item(key, 30, ly + i * 18, 12) for i, key in enumerate([*LEGEND, "earth"]))
+        out.append(f'<text x="{W - 30}" y="{H - 24}" font-size="11" text-anchor="end" fill="{th.text}" opacity=".7">'
+                   f'{say("footer")}</text>')
     out.append("</svg>")
     return "".join(out)
 
@@ -475,10 +511,11 @@ def main():
     out_dir.mkdir(exist_ok=True)
     latest = max(int(d["date"][:4]) for d in data["days"])
     # the overview keeps its name, the one-year view is the big, readable one
-    for prefix, year in (("garden", None), ("garden-year", latest)):
+    # the mobile view is a narrow canvas with big text: the others are shrunk to a third of their size on a phone
+    for prefix, year, compact in (("garden", None, False), ("garden-year", latest, False), ("garden-mobile", latest, True)):
         for theme, dark in (("light", False), ("dark", True)):
             path = out_dir / f"{prefix}-{theme}.svg"
-            path.write_text(render(data, dark, year), encoding="utf-8")
+            path.write_text(render(data, dark, year, compact), encoding="utf-8")
             print("wrote", path)
 
 
