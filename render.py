@@ -202,6 +202,47 @@ def decor_tuft(x, y, season, th, rng):
     return line(x, y + 1, x, y - 2.5, th.c(PALETTE[season]["leaf2"]), 1)
 
 
+def gardener(th):
+    """Jardinier au repos, dessiné autour de (0, 0) : il arrose, la lueur du jour est conservée la nuit."""
+    def c(color):
+        return mix(color, NIGHT, 0.2) if th.dark else color
+    skin, shirt, overall, boots = c("#f0c7a0"), c("#fff3d6"), c("#3f7fbf"), c("#5a3b24")
+    hat, band, can = c("#e8c36a"), c("#c4552b"), c("#4aa6a0")
+    drops = "".join(
+        f'<circle cx="13.6" cy="-12" r=".7" fill="#8fd3ff">'
+        f'<animate attributeName="cy" values="-12;-1" dur="1s" begin="{b}s" repeatCount="indefinite"/>'
+        f'<animate attributeName="opacity" values="1;0" dur="1s" begin="{b}s" repeatCount="indefinite"/></circle>'
+        for b in (0, 0.33, 0.66))
+    return (
+        '<ellipse cx="0" cy="1" rx="6.5" ry="2.2" fill="#000" opacity=".2"/>'
+        '<g><animateTransform attributeName="transform" type="translate" values="0 0;0 -.7;0 0" dur="1.6s" repeatCount="indefinite"/>'
+        f'<rect x="-2.8" y="-7" width="2.3" height="6" fill="{overall}"/><rect x=".5" y="-7" width="2.3" height="6" fill="{overall}"/>'
+        f'<rect x="-3" y="-2" width="2.7" height="2" rx=".6" fill="{boots}"/><rect x=".3" y="-2" width="2.7" height="2" rx=".6" fill="{boots}"/>'
+        f'<rect x="-3.4" y="-14.5" width="6.8" height="8" rx="1.2" fill="{overall}"/>'
+        f'<rect x="-3.4" y="-14.5" width="6.8" height="3" rx="1" fill="{shirt}"/>'
+        f'<line x1="-3.4" y1="-13" x2="-5.4" y2="-8" stroke="{shirt}" stroke-width="1.8" stroke-linecap="round"/>'
+        f'<circle cx="-5.5" cy="-7.4" r="1.1" fill="{skin}"/>'
+        f'<circle cx="0" cy="-17.8" r="2.8" fill="{skin}"/>'
+        f'<ellipse cx="0" cy="-19.4" rx="5.8" ry="1.5" fill="{hat}"/><ellipse cx="0" cy="-20.8" rx="3.1" ry="2.2" fill="{hat}"/>'
+        f'<rect x="-3.1" y="-20" width="6.2" height="1" fill="{band}"/>'
+        '<g><animateTransform attributeName="transform" type="rotate" values="0 3 -12;9 3 -12;0 3 -12" dur="3s" repeatCount="indefinite"/>'
+        f'<line x1="3" y1="-12.5" x2="7" y2="-10.5" stroke="{shirt}" stroke-width="1.8" stroke-linecap="round"/>'
+        f'<rect x="5.5" y="-12" width="4.6" height="3.6" rx=".8" fill="{can}"/>'
+        f'<path d="M6.2 -12 q2.2 -3.2 4 0" fill="none" stroke="{can}" stroke-width=".9"/>'
+        f'<line x1="10" y1="-10" x2="13.2" y2="-12.6" stroke="{can}" stroke-width="1"/>'
+        f'<circle cx="13.4" cy="-12.8" r="1" fill="{can}"/>{drops}</g></g>')
+
+
+MOIS = ["janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+
+
+def today_label(x, y, iso, th):
+    text = f"{int(iso[8:])} {MOIS[int(iso[5:7]) - 1]}"
+    fill, ink = ("#ffe9a8", "#1b2b3a") if th.dark else ("#ffffff", "#2c4a3a")
+    return (f'<g><rect x="{f(x - 21)}" y="{f(y - 11)}" width="42" height="16" rx="8" fill="{fill}" opacity=".92"/>'
+            f'<text x="{f(x)}" y="{f(y)}" font-size="10.5" font-weight="700" text-anchor="middle" fill="{ink}">{text}</text></g>')
+
+
 def sky(th, rng):
     out = (f'<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">'
            f'<stop offset="0" stop-color="{th.sky[0]}"/><stop offset="1" stop-color="{th.sky[1]}"/></linearGradient></defs>'
@@ -264,25 +305,32 @@ def render(data, dark):
             day = day.fromordinal(day.toordinal() + 1)
     cells.sort(key=lambda c: (c[0] + c[1], c[1]))
 
+    today = max(d["date"] for d in days)
     flies = []
     for c, r, d, level in cells:
         rng = random.Random(d["date"])
         cx, cy = OX + (c - r) * HW, OY + (c + r) * HH
         season = "earth" if level < 0 else season_of(d["date"])
         out.append(tile(cx, cy, season, th))
+        if d["date"] == today:  # la parcelle du jour pulse doucement, le jardinier se tient à côté
+            pts = f"{f(cx)},{f(cy - HH)} {f(cx + HW)},{f(cy)} {f(cx)},{f(cy + HH)} {f(cx - HW)},{f(cy)}"
+            out.append(f'<polygon points="{pts}" fill="none" stroke="{"#ffe9a8" if dark else "#ffffff"}" stroke-width="1.8">'
+                       '<animate attributeName="opacity" values=".2;1;.2" dur="2s" repeatCount="indefinite"/></polygon>')
         if level < 0:  # quelques cailloux sur la terre battue
             if rng.random() < 0.25:
                 out.append(circle(cx + rng.uniform(-5, 5), cy + rng.uniform(-1.5, 1.5), 0.9, th.c("#8f7650")))
-            continue
-        if level == 0:
+        elif level == 0:
             if rng.random() < 0.3:
                 out.append(decor_tuft(cx + rng.uniform(-4, 4), cy, season, th, rng))
-            continue
-        scale = math.sqrt(d["count"] / maxc)
-        out.append(f'<g transform="translate({f(cx)} {f(cy)}) scale({PLANT_K})">'
-                   f'{plant(level, 0, 0, season, th, rng, scale)}</g>')
-        if dark and level >= 2 and rng.random() < 0.6:
-            flies.append((cx + rng.uniform(-10, 10), cy - rng.uniform(10, 34), rng.uniform(-5, 0)))
+        else:
+            scale = math.sqrt(d["count"] / maxc)
+            out.append(f'<g transform="translate({f(cx)} {f(cy)}) scale({PLANT_K})">'
+                       f'{plant(level, 0, 0, season, th, rng, scale)}</g>')
+            if dark and level >= 2 and rng.random() < 0.6:
+                flies.append((cx + rng.uniform(-10, 10), cy - rng.uniform(10, 34), rng.uniform(-5, 0)))
+        if d["date"] == today:  # par-dessus la plante : le jardinier est devant la parcelle du jour
+            out.append(f'<g transform="translate({f(cx + HW * 0.3)} {f(cy + HH * 0.35)}) scale({PLANT_K * 1.9:.2f})">{gardener(th)}</g>')
+            out.append(today_label(cx, cy - 58, d["date"], th))
     for x, y, delay in flies:
         out.append(f'<circle class="fly" cx="{f(x)}" cy="{f(y)}" r="1.3" fill="#fff3a0" style="animation-delay:{delay:.1f}s"/>')
 
