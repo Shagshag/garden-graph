@@ -6,10 +6,11 @@ from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-HW, HH = 11, 5.5          # demi-largeur / demi-hauteur d'une parcelle
+HW, HH = 14, 7          # demi-largeur / demi-hauteur d'une parcelle
 SIDE = 3                  # épaisseur de terre visible
-OX, OY = 110, 130         # origine de la grille à l'écran
-W, H = 740, 540
+OX, OY = 138, 150         # origine de la grille à l'écran
+W, H = 900, 640
+PLANT_K = 1.3             # échelle des plantes par rapport au dessin de base
 
 SEASONS = {  # mois -> saison (hémisphère nord)
     12: "winter", 1: "winter", 2: "winter",
@@ -142,7 +143,8 @@ def turbine(x, y, count_scale, season, th, rng):
     blades = "".join(line(x, top, x + 7.5 * math.cos(math.radians(a)), top + 7.5 * math.sin(math.radians(a)), white, 1.6)
                      for a in (-90, 30, 150))
     out = line(x, y, x, top, th.c("#d7dfdb"), 1.8)
-    out += (f'<g class="spin" style="transform-origin:{f(x)}px {f(top)}px;animation-duration:{dur:.1f}s">{blades}</g>')
+    out += (f'<g>{blades}<animateTransform attributeName="transform" type="rotate" '
+            f'from="0 {f(x)} {f(top)}" to="360 {f(x)} {f(top)}" dur="{dur:.1f}s" repeatCount="indefinite"/></g>')
     out += circle(x, top, 1.6, th.c("#8fa39a"))
     # panneau solaire incliné au pied du mât
     px, py = x - 7, y + 1
@@ -179,10 +181,12 @@ def sky(th, rng):
         for _ in range(45):
             out += (f'<circle cx="{rng.uniform(20, W - 20):.0f}" cy="{rng.uniform(15, 260):.0f}" r="{rng.choice([.6, .9, 1.2])}" fill="#fff" '
                     f'class="twinkle" style="animation-delay:-{rng.uniform(0, 5):.1f}s"/>')
-        out += circle(W - 90, 78, 22, "#f3eed2") + circle(W - 80, 72, 20, th.sky[0])
+        out += ('<mask id="moon"><rect width="100%" height="100%" fill="#fff"/>'
+                f'<circle cx="{W - 78}" cy="70" r="20" fill="#000"/></mask>'
+                f'<circle cx="{W - 90}" cy="78" r="22" fill="#f3eed2" mask="url(#moon)"/>')
     else:
         out += circle(W - 90, 78, 44, "#ffe9a8", ' opacity=".35"') + circle(W - 90, 78, 26, "#ffd35c")
-    for cx, cy, s, dur in [(430, 70, 1.0, 70), (250, 100, .7, 95), (600, 150, .8, 80)]:
+    for cx, cy, s, dur in [(520, 70, 1.0, 70), (300, 110, .7, 95), (700, 180, .8, 80)]:
         col = "#2a4560" if th.dark else "#ffffff"
         out += (f'<g class="cloud" style="animation-duration:{dur}s;animation-delay:-{rng.uniform(0, dur):.0f}s" opacity=".85">'
                 f'<ellipse cx="{cx}" cy="{cy}" rx="{34 * s:.0f}" ry="{10 * s:.0f}" fill="{col}"/>'
@@ -192,8 +196,6 @@ def sky(th, rng):
 
 
 STYLE = """
-.spin{animation:spin linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
 .sway{transform-box:fill-box;transform-origin:50% 100%;animation:sway 5s ease-in-out infinite}
 @keyframes sway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
 .cloud{animation:drift linear infinite}
@@ -237,9 +239,10 @@ def render(data, dark):
                 out.append(decor_tuft(cx + rng.uniform(-4, 4), cy, season, th, rng))
             continue
         scale = math.sqrt(d["count"] / maxc)
-        out.append(plant(level, cx, cy, season, th, rng, scale))
+        out.append(f'<g transform="translate({f(cx)} {f(cy)}) scale({PLANT_K})">'
+                   f'{plant(level, 0, 0, season, th, rng, scale)}</g>')
         if dark and level >= 2 and rng.random() < 0.6:
-            flies.append((cx + rng.uniform(-8, 8), cy - rng.uniform(8, 26), rng.uniform(-5, 0)))
+            flies.append((cx + rng.uniform(-10, 10), cy - rng.uniform(10, 34), rng.uniform(-5, 0)))
     for x, y, delay in flies:
         out.append(f'<circle class="fly" cx="{f(x)}" cy="{f(y)}" r="1.3" fill="#fff3a0" style="animation-delay:{delay:.1f}s"/>')
 
