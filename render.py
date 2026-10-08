@@ -27,7 +27,7 @@ if HEMISPHERE not in ("north", "south"):
     raise SystemExit(f"GARDEN_HEMISPHERE doit valoir north ou south, pas {HEMISPHERE!r}")
 # Au sud, les saisons sont celles du nord décalées de six mois.
 SEASONS = NORTH if HEMISPHERE == "north" else {m: NORTH[(m + 5) % 12 + 1] for m in NORTH}
-SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver"}
+SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver", "earth": "À venir"}
 
 # ground, side, canopy, canopy2, accent
 PALETTE = {
@@ -35,6 +35,7 @@ PALETTE = {
     "summer": dict(ground="#86d174", side="#5fa551", leaf="#3fae4a", leaf2="#2f9440", accent="#ffd54a"),
     "autumn": dict(ground="#dcc57d", side="#b39c57", leaf="#e8923a", leaf2="#c4552b", accent="#d9482b"),
     "winter": dict(ground="#e9f1f5", side="#bccbd3", leaf="#2f6b4f", leaf2="#25573f", accent="#9ccbe8"),
+    "earth": dict(ground="#c9a97a", side="#9c7e56", leaf="#a98a5d", leaf2="#a98a5d", accent="#a98a5d"),  # terre battue, jours à venir
 }
 TRUNK = "#7a5636"
 PANEL = "#2f6fb5"
@@ -252,14 +253,27 @@ def render(data, dark):
     for d, level in zip(days, lv):
         col, row = grid_pos(d["date"], years)
         cells.append((col, row, d, level))
+    # Les jours pas encore écoulés de l'année en cours : terre battue jusqu'au 31 décembre.
+    known = {d["date"] for d in days}
+    for y in years:
+        day = date(y, 1, 1)
+        while day.year == y:
+            if day.isoformat() not in known:
+                col, row = grid_pos(day.isoformat(), years)
+                cells.append((col, row, {"date": day.isoformat(), "count": 0}, -1))
+            day = day.fromordinal(day.toordinal() + 1)
     cells.sort(key=lambda c: (c[0] + c[1], c[1]))
 
     flies = []
     for c, r, d, level in cells:
         rng = random.Random(d["date"])
         cx, cy = OX + (c - r) * HW, OY + (c + r) * HH
-        season = season_of(d["date"])
+        season = "earth" if level < 0 else season_of(d["date"])
         out.append(tile(cx, cy, season, th))
+        if level < 0:  # quelques cailloux sur la terre battue
+            if rng.random() < 0.25:
+                out.append(circle(cx + rng.uniform(-5, 5), cy + rng.uniform(-1.5, 1.5), 0.9, th.c("#8f7650")))
+            continue
         if level == 0:
             if rng.random() < 0.3:
                 out.append(decor_tuft(cx + rng.uniform(-4, 4), cy, season, th, rng))
@@ -280,8 +294,8 @@ def render(data, dark):
         mid = i * ROWS_PER_YEAR + 3
         out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
                    f'text-anchor="end" fill="{th.text}" opacity=".85">{y}</text>')
-    lx, ly = 30, H - 78
-    for i, s in enumerate(["spring", "summer", "autumn", "winter"]):
+    lx, ly = 30, H - 96
+    for i, s in enumerate(["spring", "summer", "autumn", "winter", "earth"]):
         y = ly + i * 18
         out.append(circle(lx + 5, y, 5, th.c(PALETTE[s]["ground"]), f' stroke="{th.c(PALETTE[s]["side"])}"'))
         out.append(f'<text x="{lx + 18}" y="{y + 4}" font-size="12" fill="{th.text}">{SEASON_LABEL[s]}</text>')
