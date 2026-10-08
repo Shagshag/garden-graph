@@ -202,9 +202,9 @@ def decor_tuft(x, y, season, th, rng):
     return line(x, y + 1, x, y - 2.5, th.c(PALETTE[season]["leaf2"]), 1)
 
 
-def gardener(th, x_span, y_span):
+def gardener(th, start, end, dur):
     """Jardinier qui fait des allers-retours sur la parcelle du jour, dessiné autour de (0, 0).
-    x_span, y_span : demi-trajet en pixels. Ses couleurs sont moins assombries la nuit pour rester lisibles."""
+    start, end : points (x, y) du trajet en pixels, dur : durée de l'aller-retour. Ses couleurs sont moins assombries la nuit pour rester lisibles."""
     def c(color):
         return mix(color, NIGHT, 0.2) if th.dark else color
     skin, shirt, overall, boots = c("#f0c7a0"), c("#fff3d6"), c("#3f7fbf"), c("#5a3b24")
@@ -215,10 +215,10 @@ def gardener(th, x_span, y_span):
                 f'<rect x="{x}" y="-7" width="2.3" height="5.2" fill="{overall}"/>'
                 f'<rect x="{x - .2}" y="-2" width="2.7" height="2" rx=".6" fill="{boots}"/></g>')
 
-    walk = (f'<animateTransform attributeName="transform" type="translate" calcMode="linear" dur="16s" repeatCount="indefinite" '
-            f'values="{-x_span:.1f} {-y_span:.1f};{x_span:.1f} {y_span:.1f};{-x_span:.1f} {-y_span:.1f}"/>')
+    walk = (f'<animateTransform attributeName="transform" type="translate" calcMode="linear" dur="{dur:.0f}s" repeatCount="indefinite" '
+            f'values="{start[0]:.1f} {start[1]:.1f};{end[0]:.1f} {end[1]:.1f};{start[0]:.1f} {start[1]:.1f}"/>')
     # demi-tour : discret, miroir pendant la deuxième moitié du trajet
-    turn = ('<animateTransform attributeName="transform" type="scale" calcMode="discrete" dur="16s" repeatCount="indefinite" '
+    turn = (f'<animateTransform attributeName="transform" type="scale" calcMode="discrete" dur="{dur:.0f}s" repeatCount="indefinite" '
             'values="1 1;-1 1" keyTimes="0;.5"/>')
     return (
         f'<g>{walk}'
@@ -319,7 +319,7 @@ def render(data, dark):
         season = "earth" if level < 0 else season_of(d["date"])
         out.append(tile(cx, cy, season, th))
         if d["date"] == today:  # la parcelle du jour pulse doucement
-            today_pos = (cx, cy)
+            today_pos, today_cr = (cx, cy), (c, r)
             pts = f"{f(cx)},{f(cy - HH)} {f(cx + HW)},{f(cy)} {f(cx)},{f(cy + HH)} {f(cx - HW)},{f(cy)}"
             out.append(f'<polygon points="{pts}" fill="none" stroke="{"#ffe9a8" if dark else "#ffffff"}" stroke-width="1.8">'
                        '<animate attributeName="opacity" values=".3;.85;.3" dur="3s" repeatCount="indefinite"/></polygon>')
@@ -339,8 +339,20 @@ def render(data, dark):
         out.append(f'<circle class="fly" cx="{f(x)}" cy="{f(y)}" r="1.3" fill="#fff3a0" style="animation-delay:{delay:.1f}s"/>')
     # jardinier en dernier : il se promène sur environ trois parcelles autour du jour courant, devant les plantes
     cx, cy = today_pos
-    out.append(f'<g transform="translate({f(cx)} {f(cy + HH * 0.2)}) scale({PLANT_K * 1.1:.2f})">'
-               f'{gardener(th, HW * 1.6 / (PLANT_K * 1.1), HH * 1.6 / (PLANT_K * 1.1))}</g>')
+    # Le trajet suit l'axe des semaines mais s'arrête au dernier carré existant : début et fin d'année,
+    # il ne sort donc jamais du terrain (la première semaine peut aussi être partielle).
+    have = {(c, r) for c, r, _, _ in cells}
+    tc, tr = today_cr
+    reach = [0, 0]  # nombre de pas possibles en arrière puis en avant, 1,6 au plus
+    for i, step in enumerate((-1, 1)):
+        while reach[i] + 1 <= 1.6 and (tc + step * (reach[i] + 1), tr) in have:
+            reach[i] += 1
+        if (tc + step * (reach[i] + 1), tr) in have:
+            reach[i] = 1.6
+    k = PLANT_K * 1.1
+    start, end = (-reach[0] * HW / k, -reach[0] * HH / k), (reach[1] * HW / k, reach[1] * HH / k)
+    dur = max(4, 5 * (reach[0] + reach[1]))
+    out.append(f'<g transform="translate({f(cx)} {f(cy + HH * 0.2)}) scale({k:.2f})">{gardener(th, start, end, dur)}</g>')
     out.append(today_label(cx, cy - 44, today, th))
 
     # en-tête et légende
