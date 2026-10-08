@@ -18,7 +18,7 @@ jobs:
           python-version: "3.12"
       - name: Fetch contributions and render the garden
         env:
-          GITHUB_LOGIN: Shagshag
+          # GITHUB_LOGIN: someone-else  # defaults to the owner of this repository
           GARDEN_CLIMATE: temperate-north  # see the README for the other climates
           GARDEN_LANG: fr  # fr, en, ja or hi
           # Optional: a personal token (read:user) to also count private contributions
