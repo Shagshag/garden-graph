@@ -41,6 +41,15 @@ CLIMATES = {
     "tropical-south": (_months(wet="11 12 1 2 3 4", dry="5 6 7 8 9 10"), ("wet", "dry")),
     # ... et Afrique sahélienne, Amérique centrale, Asie du Sud-Est continentale.
     "tropical-north": (_months(wet="5 6 7 8 9 10", dry="11 12 1 2 3 4"), ("wet", "dry")),
+    # Mousson d'Asie de l'Est, Chine du Sud-Est (Guangdong, Fujian, Hong Kong) : hiver doux, pluies de printemps,
+    # été humide et typhons, automne clair.
+    "china-southeast": (_months(mild="12 1 2", plum="3 4 5", humid="6 7 8 9", clear="10 11"),
+                        ("mild", "plum", "humid", "clear")),
+    # Japon (Honshu) : sakura, saison des pluies (tsuyu, de juin à mi-juillet), été, automne, hiver.
+    # Un mois peut être coupé en deux : (saison jusqu'au 15, saison après le 15).
+    "japan": ({12: "winter", 1: "winter", 2: "winter", 3: "sakura", 4: "sakura", 5: "spring", 6: "tsuyu",
+               7: ("tsuyu", "summer"), 8: "summer", 9: ("summer", "autumn"), 10: "autumn", 11: "autumn"},
+              ("sakura", "spring", "tsuyu", "summer", "autumn", "winter")),
 }
 CLIMATE = os.environ.get("GARDEN_CLIMATE", "").strip().lower()
 if not CLIMATE:  # GARDEN_HEMISPHERE reste accepté : c'est l'ancien nom du réglage tempéré
@@ -50,7 +59,9 @@ if CLIMATE not in CLIMATES:
 SEASONS, LEGEND = CLIMATES[CLIMATE]
 SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver",
                 "cool": "Saison fraîche", "hot": "Saison chaude", "monsoon": "Mousson", "postmonsoon": "Après-mousson",
-                "wet": "Saison des pluies", "dry": "Saison sèche", "earth": "À venir"}
+                "wet": "Saison des pluies", "dry": "Saison sèche",
+                "mild": "Hiver doux", "plum": "Pluies de printemps", "humid": "Été humide", "clear": "Automne clair",
+                "sakura": "Sakura", "tsuyu": "Tsuyu (pluies)", "earth": "À venir"}
 
 # Par saison : couleurs (sol, tranche, feuillage, feuillage 2, accent) et façon de dessiner les plantes.
 # heads : fleurs possibles ; blossom/fruit : points sur les arbres ; tree : feuillu ou sapin ; shrub : arbuste
@@ -78,6 +89,20 @@ PALETTE = {
                 heads=("#ff8fb1", "#ffd54a", "#ffffff"), puddle=True),
     "dry": dict(ground="#dfc384", side="#b39a5a", leaf="#a8a24a", leaf2="#8a8a3d", accent="#e8923a",
                 heads=("#f2c230", "#e8923a")),
+    # Chine du Sud-Est : kumquats, bauhinias, litchis, osmanthus
+    "mild": dict(ground="#a6d48e", side="#7fab69", leaf="#4fa65a", leaf2="#3a8a49", accent="#ff8fb1",
+                 heads=("#ff8fb1", "#ffffff", "#e05aa0"), blossom="#ff8fb1", fruit="#ff9a1f"),
+    "plum": dict(ground="#8fd0a0", side="#64a678", leaf="#3fae6a", leaf2="#2f8f58", accent="#e05aa0",
+                 heads=("#e05aa0", "#ff8fb1"), blossom="#e05aa0", puddle=True),
+    "humid": dict(ground="#55b56a", side="#3a8f4e", leaf="#2f9e4f", leaf2="#1f7f3f", accent="#7ad0e8",
+                  heads=("#ff8fb1", "#ffffff"), fruit="#e0334a", puddle=True),
+    "clear": dict(ground="#bcd97c", side="#92ad56", leaf="#5dba4a", leaf2="#43a23a", accent="#ffd54a",
+                  heads=("#ffd54a", "#ffb300"), fruit="#ff9a1f"),
+    # Japon : cerisiers en fleurs, hortensias de la saison des pluies (l'été, l'automne et l'hiver sont ceux du tempéré)
+    "sakura": dict(ground="#e0e6b0", side="#98b872", leaf="#f7c1d6", leaf2="#eea3c1", accent="#f6a6c1",
+                   heads=("#f6a6c1", "#ffffff"), blossom="#ffffff", sprout_leaf="#7fc46a", tuft="#6dbb5a"),
+    "tsuyu": dict(ground="#6fb59a", side="#4a8f78", leaf="#4aa88a", leaf2="#2f8a6f", accent="#8a9be8",
+                  heads=("#8a9be8", "#b58be8", "#e88bc8"), puddle=True),
     "earth": dict(ground="#c9a97a", side="#9c7e56", leaf="#a98a5d", leaf2="#a98a5d", accent="#a98a5d"),  # terre battue, jours à venir
 }
 TRUNK = "#7a5636"
@@ -121,7 +146,10 @@ def grid_pos(iso, years):
 
 
 def season_of(iso):
-    return SEASONS[int(iso[5:7])]
+    season = SEASONS[int(iso[5:7])]
+    if isinstance(season, tuple):  # mois coupé en deux
+        return season[0] if int(iso[8:]) <= 15 else season[1]
+    return season
 
 
 def levels(days):
@@ -242,7 +270,7 @@ def decor_tuft(x, y, season, th, rng):
         return circle(x + rng.uniform(-4, 4), y + rng.uniform(-1, 1), 0.9, th.c("#ffffff"))
     if p.get("puddle"):  # flaque de mousson
         return (f'<ellipse cx="{f(x)}" cy="{f(y)}" rx="4.2" ry="1.8" fill="{th.c("#7ab8d8")}" opacity=".75"/>')
-    return line(x, y + 1, x, y - 2.5, th.c(PALETTE[season]["leaf2"]), 1)
+    return line(x, y + 1, x, y - 2.5, th.c(p.get("tuft", p["leaf2"])), 1)
 
 
 def gardener(th, start, end, dur):
