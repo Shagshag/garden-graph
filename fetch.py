@@ -4,23 +4,23 @@ import os
 import subprocess
 import sys
 import urllib.request
+from datetime import date
 from pathlib import Path
 
 LOGIN = os.environ.get("GITHUB_LOGIN", "Shagshag")
 OUT = Path(__file__).parent / "data" / "contributions.json"
 
-QUERY = """
-query($login: String!) {
-  user(login: $login) {
-    contributionsCollection {
-      contributionCalendar {
-        totalContributions
-        weeks { contributionDays { date weekday contributionCount } }
-      }
-    }
-  }
-}
-"""
+YEARS = int(os.environ.get("GARDEN_YEARS", "5"))  # nombre d'années calendaires, l'année en cours incluse
+
+
+def build_query(years):
+    """Une requête avec un champ aliasé par année : contributionsCollection est limité à 12 mois."""
+    fields = "".join(
+        f'y{y}: contributionsCollection(from: "{y}-01-01T00:00:00Z", to: "{y}-12-31T23:59:59Z") {{'
+        "contributionCalendar { weeks { contributionDays { date contributionCount } } } } "
+        for y in years
+    )
+    return "query($login: String!) { user(login: $login) { " + fields + "} }"
 
 
 def get_token():
@@ -35,31 +35,34 @@ def get_token():
 
 
 def main():
-    body = json.dumps({"query": QUERY, "variables": {"login": LOGIN}}).encode()
+    years = list(range(date.today().year - YEARS + 1, date.today().year + 1))
+    body = json.dumps({"query": build_query(years), "variables": {"login": LOGIN}}).encode()
     req = urllib.request.Request(
         "https://api.github.com/graphql",
         data=body,
         headers={"Authorization": f"bearer {get_token()}", "User-Agent": "solargraph"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=60) as resp:
             payload = json.load(resp)
-        cal = payload["data"]["user"]["contributionsCollection"]["contributionCalendar"]
+        user = payload["data"]["user"]
     except Exception as exc:  # API en panne : on garde les données précédentes
         print(f"Échec de la récupération ({exc}), données précédentes conservées.")
         return
 
-    days = [
-        {"date": d["date"], "weekday": d["weekday"], "count": d["contributionCount"]}
-        for week in cal["weeks"]
-        for d in week["contributionDays"]
-    ]
+    counts = {}  # dédoublonnage : une semaine à cheval sur deux années apparaît dans les deux
+    for y in years:
+        for week in user[f"y{y}"]["contributionCalendar"]["weeks"]:
+            for d in week["contributionDays"]:
+                if d["date"].startswith(str(y)) and d["date"] <= date.today().isoformat():
+                    counts[d["date"]] = d["contributionCount"]
+    days = [{"date": k, "count": v} for k, v in sorted(counts.items())]
     OUT.parent.mkdir(exist_ok=True)
     OUT.write_text(
-        json.dumps({"login": LOGIN, "total": cal["totalContributions"], "days": days}, indent=1),
+        json.dumps({"login": LOGIN, "years": years, "total": sum(counts.values()), "days": days}, indent=1),
         encoding="utf-8",
     )
-    print(f"{len(days)} jours, {cal['totalContributions']} contributions.")
+    print(f"{len(days)} jours, {sum(counts.values())} contributions sur {len(years)} ans.")
 
 
 if __name__ == "__main__":
