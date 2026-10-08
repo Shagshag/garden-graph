@@ -16,25 +16,68 @@ PLANT_K = 1.3             # échelle des plantes par rapport au dessin de base
 COLS, ROWS_PER_YEAR = 54, 7
 MARGIN, TOP = 50, 150
 
-NORTH = {  # mois -> saison (hémisphère nord)
+NORTH = {  # mois -> saison (climat tempéré, hémisphère nord)
     12: "winter", 1: "winter", 2: "winter",
     3: "spring", 4: "spring", 5: "spring",
     6: "summer", 7: "summer", 8: "summer",
     9: "autumn", 10: "autumn", 11: "autumn",
 }
-HEMISPHERE = os.environ.get("GARDEN_HEMISPHERE", "north").strip().lower()
-if HEMISPHERE not in ("north", "south"):
-    raise SystemExit(f"GARDEN_HEMISPHERE doit valoir north ou south, pas {HEMISPHERE!r}")
-# Au sud, les saisons sont celles du nord décalées de six mois.
-SEASONS = NORTH if HEMISPHERE == "north" else {m: NORTH[(m + 5) % 12 + 1] for m in NORTH}
-SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver", "earth": "À venir"}
 
-# ground, side, canopy, canopy2, accent
+
+def _months(**seasons):
+    """_months(wet="11 12 1 2 3 4", dry="5 6 7 8 9 10") -> {mois: saison}."""
+    return {int(m): name for name, ms in seasons.items() for m in ms.split()}
+
+
+# nom du climat -> (saison de chaque mois, saisons dans l'ordre de la légende)
+CLIMATES = {
+    "temperate-north": (NORTH, ("spring", "summer", "autumn", "winter")),
+    # Au sud, les saisons sont celles du nord décalées de six mois.
+    "temperate-south": ({m: NORTH[(m + 5) % 12 + 1] for m in NORTH}, ("spring", "summer", "autumn", "winter")),
+    # Asie du Sud (Inde, Bangladesh...) : les quatre saisons du service météo indien.
+    "monsoon": (_months(cool="12 1 2", hot="3 4 5", monsoon="6 7 8 9", postmonsoon="10 11"),
+                ("cool", "hot", "monsoon", "postmonsoon")),
+    # Tropiques à deux saisons : Brésil central, Indonésie, Afrique australe...
+    "tropical-south": (_months(wet="11 12 1 2 3 4", dry="5 6 7 8 9 10"), ("wet", "dry")),
+    # ... et Afrique sahélienne, Amérique centrale, Asie du Sud-Est continentale.
+    "tropical-north": (_months(wet="5 6 7 8 9 10", dry="11 12 1 2 3 4"), ("wet", "dry")),
+}
+CLIMATE = os.environ.get("GARDEN_CLIMATE", "").strip().lower()
+if not CLIMATE:  # GARDEN_HEMISPHERE reste accepté : c'est l'ancien nom du réglage tempéré
+    CLIMATE = "temperate-" + os.environ.get("GARDEN_HEMISPHERE", "north").strip().lower()
+if CLIMATE not in CLIMATES:
+    raise SystemExit(f"GARDEN_CLIMATE doit valoir {', '.join(CLIMATES)}, pas {CLIMATE!r}")
+SEASONS, LEGEND = CLIMATES[CLIMATE]
+SEASON_LABEL = {"spring": "Printemps", "summer": "Été", "autumn": "Automne", "winter": "Hiver",
+                "cool": "Saison fraîche", "hot": "Saison chaude", "monsoon": "Mousson", "postmonsoon": "Après-mousson",
+                "wet": "Saison des pluies", "dry": "Saison sèche", "earth": "À venir"}
+
+# Par saison : couleurs (sol, tranche, feuillage, feuillage 2, accent) et façon de dessiner les plantes.
+# heads : fleurs possibles ; blossom/fruit : points sur les arbres ; tree : feuillu ou sapin ; shrub : arbuste
+# à la place de la fleur ; snow : neige sur les panneaux ; puddle : flaques sur les parcelles vides.
 PALETTE = {
-    "spring": dict(ground="#bfe28f", side="#93b86c", leaf="#8fd16a", leaf2="#6dbb5a", accent="#f6a6c1"),
-    "summer": dict(ground="#86d174", side="#5fa551", leaf="#3fae4a", leaf2="#2f9440", accent="#ffd54a"),
-    "autumn": dict(ground="#dcc57d", side="#b39c57", leaf="#e8923a", leaf2="#c4552b", accent="#d9482b"),
-    "winter": dict(ground="#e9f1f5", side="#bccbd3", leaf="#2f6b4f", leaf2="#25573f", accent="#9ccbe8"),
+    "spring": dict(ground="#bfe28f", side="#93b86c", leaf="#8fd16a", leaf2="#6dbb5a", accent="#f6a6c1",
+                   heads=("#f6a6c1",), blossom="#f6a6c1"),
+    "summer": dict(ground="#86d174", side="#5fa551", leaf="#3fae4a", leaf2="#2f9440", accent="#ffd54a",
+                   heads=("#ffd54a", "#ff8fb1", "#ffffff"), core="#c0702a", fruit="#ff6b5e"),
+    "autumn": dict(ground="#dcc57d", side="#b39c57", leaf="#e8923a", leaf2="#c4552b", accent="#d9482b",
+                   heads=("#e8923a", "#d9482b")),
+    "winter": dict(ground="#e9f1f5", side="#bccbd3", leaf="#2f6b4f", leaf2="#25573f", accent="#9ccbe8",
+                   tree="pine", shrub=True, snow=True, sprout_leaf="#4f8f6c"),
+    # Asie du Sud
+    "cool": dict(ground="#d9d58f", side="#aaa365", leaf="#7fa24f", leaf2="#678a3f", accent="#f2c230",
+                 heads=("#f2c230", "#ffffff")),  # champs de moutarde
+    "hot": dict(ground="#e2c48a", side="#b89a5e", leaf="#9aa84a", leaf2="#7f8c3d", accent="#e8532b",
+                heads=("#e8532b", "#ff9a1f"), blossom="#e8532b"),  # poussière et flamboyants
+    "monsoon": dict(ground="#5fb86a", side="#3f8f4f", leaf="#2f9e4f", leaf2="#1f7f3f", accent="#7ad0e8",
+                    heads=("#ff8fb1", "#ffffff"), puddle=True),  # lotus et flaques
+    "postmonsoon": dict(ground="#a8d86e", side="#7fae4e", leaf="#58b84a", leaf2="#3f9a3c", accent="#ffb300",
+                        heads=("#ffb300", "#ff7a00"), fruit="#ffb300"),  # soucis
+    # Tropiques à deux saisons
+    "wet": dict(ground="#5fb86a", side="#3f8f4f", leaf="#2f9e4f", leaf2="#1f7f3f", accent="#7ad0e8",
+                heads=("#ff8fb1", "#ffd54a", "#ffffff"), puddle=True),
+    "dry": dict(ground="#dfc384", side="#b39a5a", leaf="#a8a24a", leaf2="#8a8a3d", accent="#e8923a",
+                heads=("#f2c230", "#e8923a")),
     "earth": dict(ground="#c9a97a", side="#9c7e56", leaf="#a98a5d", leaf2="#a98a5d", accent="#a98a5d"),  # terre battue, jours à venir
 }
 TRUNK = "#7a5636"
@@ -120,7 +163,7 @@ def line(x1, y1, x2, y2, stroke, w=1.2):
 
 def sprout(x, y, season, th, rng):
     p = PALETTE[season]
-    leaf = th.c(p["leaf"] if season != "winter" else "#4f8f6c")
+    leaf = th.c(p.get("sprout_leaf", p["leaf"]))
     return (line(x, y, x, y - 5, leaf)
             + f'<ellipse cx="{f(x - 2)}" cy="{f(y - 5)}" rx="2.2" ry="1.2" fill="{leaf}" transform="rotate(-30 {f(x - 2)} {f(y - 5)})"/>'
             + f'<ellipse cx="{f(x + 2)}" cy="{f(y - 5.5)}" rx="2.2" ry="1.2" fill="{leaf}" transform="rotate(30 {f(x + 2)} {f(y - 5.5)})"/>')
@@ -128,22 +171,19 @@ def sprout(x, y, season, th, rng):
 
 def flower(x, y, season, th, rng):
     p = PALETTE[season]
-    stem = th.c("#4f9a4a")
-    if season == "winter":  # arbuste persistant sous la neige
+    if p.get("shrub"):  # arbuste persistant sous la neige
         return (circle(x, y - 4, 4.2, th.c(p["leaf"]))
                 + f'<ellipse cx="{f(x)}" cy="{f(y - 7)}" rx="3.6" ry="1.6" fill="{th.c("#ffffff")}"/>')
-    head = {"spring": p["accent"], "summer": rng.choice(["#ffd54a", "#ff8fb1", "#ffffff"]),
-            "autumn": rng.choice(["#e8923a", "#d9482b"])}[season]
-    return (line(x, y, x, y - 8, stem)
-            + circle(x, y - 9, 3.4, th.c(head))
-            + circle(x, y - 9, 1.2, th.c("#ffe28a" if season != "summer" else "#c0702a")))
+    return (line(x, y, x, y - 8, th.c("#4f9a4a"))
+            + circle(x, y - 9, 3.4, th.c(rng.choice(p["heads"])))
+            + circle(x, y - 9, 1.2, th.c(p.get("core", "#ffe28a"))))
 
 
 def tree(x, y, count_scale, season, th, rng):
     p = PALETTE[season]
     h = 9 + 5 * count_scale
     trunk = th.c(TRUNK)
-    if season == "winter":  # sapin enneigé
+    if p.get("tree") == "pine":  # sapin enneigé
         body = f'<rect x="{f(x - 1)}" y="{f(y - 4)}" width="2" height="4" fill="{trunk}"/>'
         for i, (w, off) in enumerate([(8, 4), (6, 4 + h * 0.35), (4, 4 + h * 0.7)]):
             ty = y - off
@@ -154,12 +194,12 @@ def tree(x, y, count_scale, season, th, rng):
     cy = y - h - 3
     body += circle(x - 3, cy + 1.5, 5.2, th.c(p["leaf2"])) + circle(x + 3, cy + 1, 5.2, th.c(p["leaf2"]))
     body += circle(x, cy - 1.5, 6.4, th.c(p["leaf"]))
-    if season == "spring":
+    if p.get("blossom"):
         for _ in range(4):
-            body += circle(x + rng.uniform(-6, 6), cy + rng.uniform(-6, 3), 1.1, th.c(p["accent"]))
-    elif season == "summer":
+            body += circle(x + rng.uniform(-6, 6), cy + rng.uniform(-6, 3), 1.1, th.c(p["blossom"]))
+    if p.get("fruit"):
         for _ in range(3):
-            body += circle(x + rng.uniform(-5, 5), cy + rng.uniform(-4, 3), 1.1, th.c("#ff6b5e"))
+            body += circle(x + rng.uniform(-5, 5), cy + rng.uniform(-4, 3), 1.1, th.c(p["fruit"]))
     return body
 
 
@@ -178,9 +218,9 @@ def turbine(x, y, count_scale, season, th, rng):
     # panneau solaire incliné au pied du mât
     px, py = x - 7, y + 1
     pts = f"{f(px - 5)},{f(py)} {f(px + 5)},{f(py - 3)} {f(px + 5)},{f(py + 2)} {f(px - 5)},{f(py + 5)}"
-    panel = th.c("#ffffff") if season == "winter" else th.c(PANEL)
+    panel = th.c("#ffffff") if PALETTE[season].get("snow") else th.c(PANEL)
     out += f'<polygon points="{pts}" fill="{panel}" stroke="{th.c("#9fb7c9")}" stroke-width=".6"/>'
-    out += circle(x + 6, y - 2, 3, th.c(PALETTE[season]["leaf"] if season != "winter" else "#4f8f6c"))
+    out += circle(x + 6, y - 2, 3, th.c(PALETTE[season].get("sprout_leaf", PALETTE[season]["leaf"])))
     if th.dark:
         out += circle(x, top, 2.6, "#ffe9a8", ' opacity=".35"')
     return out
@@ -197,8 +237,11 @@ def plant(level, x, y, season, th, rng, scale):
 
 
 def decor_tuft(x, y, season, th, rng):
-    if season == "winter":
+    p = PALETTE[season]
+    if p.get("snow"):
         return circle(x + rng.uniform(-4, 4), y + rng.uniform(-1, 1), 0.9, th.c("#ffffff"))
+    if p.get("puddle"):  # flaque de mousson
+        return (f'<ellipse cx="{f(x)}" cy="{f(y)}" rx="4.2" ry="1.8" fill="{th.c("#7ab8d8")}" opacity=".75"/>')
     return line(x, y + 1, x, y - 2.5, th.c(PALETTE[season]["leaf2"]), 1)
 
 
@@ -363,8 +406,8 @@ def render(data, dark):
         mid = i * ROWS_PER_YEAR + 3
         out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
                    f'text-anchor="end" fill="{th.text}" opacity=".85">{y}</text>')
-    lx, ly = 30, H - 96
-    for i, s in enumerate(["spring", "summer", "autumn", "winter", "earth"]):
+    lx, ly = 30, H - 24 - 18 * len(LEGEND)
+    for i, s in enumerate([*LEGEND, "earth"]):
         y = ly + i * 18
         out.append(circle(lx + 5, y, 5, th.c(PALETTE[s]["ground"]), f' stroke="{th.c(PALETTE[s]["side"])}"'))
         out.append(f'<text x="{lx + 18}" y="{y + 4}" font-size="12" fill="{th.text}">{SEASON_LABEL[s]}</text>')

@@ -24,7 +24,21 @@ python fetch.py   # récupère les contributions des N dernières années (GITHU
 python render.py  # écrit assets/garden-light.svg et assets/garden-dark.svg
 ```
 
-Aucune dépendance, Python 3 suffit. `GARDEN_HEMISPHERE=south` décale les saisons de six mois pour l'hémisphère sud (`north` par défaut). `GITHUB_LOGIN` change le compte lu (par défaut `Shagshag`).
+Aucune dépendance, Python 3 suffit. `GITHUB_LOGIN` change le compte lu (par défaut `Shagshag`).
+
+## Climats
+
+`GARDEN_CLIMATE` choisit les saisons du jardin (`temperate-north` par défaut). `GARDEN_HEMISPHERE=north|south` reste accepté comme ancien nom des deux premiers.
+
+| Valeur | Saisons | Pour qui |
+|---|---|---|
+| `temperate-north` | printemps, été, automne, hiver | Amérique du Nord, Europe, Japon, nord de la Chine |
+| `temperate-south` | idem, décalées de six mois | Australie (sud), Nouvelle-Zélande, Argentine, Afrique du Sud, sud du Brésil |
+| `monsoon` | saison fraîche (déc. à fév.), chaude (mars à mai), mousson (juin à sept.), après-mousson (oct. et nov.) | Inde, Bangladesh, Sri Lanka, Népal |
+| `tropical-south` | pluies (nov. à avril), sèche (mai à oct.) | Brésil central, Indonésie, Afrique australe |
+| `tropical-north` | pluies (mai à oct.), sèche (nov. à avril) | Sahel, Amérique centrale, Asie du Sud-Est continentale |
+
+Les mois sont des moyennes : une région précise (côte est de l'Inde, Kerala...) peut avoir ses pluies à d'autres dates.
 
 ## Mise en ligne
 

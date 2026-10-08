@@ -19,7 +19,7 @@ jobs:
       - name: Fetch contributions and render the garden
         env:
           GITHUB_LOGIN: Shagshag
-          GARDEN_HEMISPHERE: north  # north ou south
+          GARDEN_CLIMATE: temperate-north  # voir le README pour les autres climats
           # Optionnel : un token personnel (read:user) pour compter aussi les contributions privées
           GITHUB_TOKEN: ${{ secrets.GH_STATS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
