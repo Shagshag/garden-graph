@@ -19,9 +19,9 @@ jobs:
       - name: Fetch contributions and render the garden
         env:
           GITHUB_LOGIN: Shagshag
-          GARDEN_CLIMATE: temperate-north  # voir le README pour les autres climats
-          GARDEN_LANG: fr  # fr, en, ja ou hi
-          # Optionnel : un token personnel (read:user) pour compter aussi les contributions privées
+          GARDEN_CLIMATE: temperate-north  # see the README for the other climates
+          GARDEN_LANG: fr  # fr, en, ja or hi
+          # Optional: a personal token (read:user) to also count private contributions
           GITHUB_TOKEN: ${{ secrets.GH_STATS_TOKEN || secrets.GITHUB_TOKEN }}
         run: |
           python fetch.py

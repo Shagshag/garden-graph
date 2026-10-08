@@ -1,8 +1,8 @@
-"""Textes du jardin par langue.
+"""Garden texts, per language.
 
-Les phrases sont des modèles complets avec des zones de remplacement ({login}, {total}, {first}, {last},
-{day}, {month}) et pas des mots assemblés : l'ordre des mots, les particules et la ponctuation changent d'une
-langue à l'autre. Pour ajouter une langue, copier une entrée de STRINGS et la traduire.
+Sentences are full templates with placeholders ({login}, {total}, {first}, {last}, {day}, {month}),
+not words glued together: word order, particles and punctuation change from one language to the next.
+To add a language, copy an entry of STRINGS and translate it.
 """
 
 STRINGS = {
@@ -74,7 +74,7 @@ STRINGS = {
 
 
 def number(n, lang):
-    """1280 -> « 1 280 » (fr), « 1,280 » (en, ja), « 12,34,567 » (hi, groupement indien)."""
+    """1280 -> "1 280" (fr), "1,280" (en, ja), "12,34,567" (hi, Indian digit grouping)."""
     group = STRINGS[lang]["group"]
     digits = str(n)
     if group != "indian":
@@ -93,5 +93,5 @@ def number(n, lang):
 
 
 def text_width(text, size):
-    """Largeur approchée d'un texte : les idéogrammes sont environ deux fois plus larges que le latin."""
+    """Approximate width of a text: ideographs are about twice as wide as Latin letters."""
     return sum(size * (1.0 if ord(ch) >= 0x2E80 else 0.58) for ch in text)

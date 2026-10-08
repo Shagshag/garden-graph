@@ -1,4 +1,4 @@
-"""Génère le jardin solarpunk (SVG isométrique animé) à partir de data/contributions.json."""
+"""Render the solarpunk garden (animated isometric SVG) from data/contributions.json."""
 import html
 import json
 import math
@@ -10,16 +10,16 @@ from pathlib import Path
 import i18n
 
 ROOT = Path(__file__).parent
-# Géométrie, recalculée par layout() selon le nombre d'années
-HW, HH = 14, 7          # demi-largeur / demi-hauteur d'une parcelle
-SIDE = 3                  # épaisseur de terre visible
-OX, OY = 138, 150         # origine de la grille à l'écran
+# Geometry, recomputed by layout() from the number of years
+HW, HH = 14, 7          # half width / half height of a tile
+SIDE = 3                  # visible soil thickness
+OX, OY = 138, 150         # screen origin of the grid
 W, H = 1000, 640
-PLANT_K = 1.3             # échelle des plantes par rapport au dessin de base
+PLANT_K = 1.3             # plant scale relative to the base drawing
 COLS, ROWS_PER_YEAR = 54, 7
 MARGIN, TOP = 50, 150
 
-NORTH = {  # mois -> saison (climat tempéré, hémisphère nord)
+NORTH = {  # month -> season (temperate climate, northern hemisphere)
     12: "winter", 1: "winter", 2: "winter",
     3: "spring", 4: "spring", 5: "spring",
     6: "summer", 7: "summer", 8: "summer",
@@ -28,53 +28,53 @@ NORTH = {  # mois -> saison (climat tempéré, hémisphère nord)
 
 
 def _months(**seasons):
-    """_months(wet="11 12 1 2 3 4", dry="5 6 7 8 9 10") -> {mois: saison}."""
+    """_months(wet="11 12 1 2 3 4", dry="5 6 7 8 9 10") -> {month: season}."""
     return {int(m): name for name, ms in seasons.items() for m in ms.split()}
 
 
-# nom du climat -> (saison de chaque mois, saisons dans l'ordre de la légende)
+# climate name -> (season of each month, seasons in legend order)
 CLIMATES = {
     "temperate-north": (NORTH, ("spring", "summer", "autumn", "winter")),
-    # Au sud, les saisons sont celles du nord décalées de six mois.
+    # In the south, seasons are the northern ones shifted by six months.
     "temperate-south": ({m: NORTH[(m + 5) % 12 + 1] for m in NORTH}, ("spring", "summer", "autumn", "winter")),
-    # Asie du Sud (Inde, Bangladesh...) : les quatre saisons du service météo indien.
+    # South Asia (India, Bangladesh...): the four seasons used by the Indian meteorological department.
     "monsoon": (_months(cool="12 1 2", hot="3 4 5", monsoon="6 7 8 9", postmonsoon="10 11"),
                 ("cool", "hot", "monsoon", "postmonsoon")),
-    # Tropiques à deux saisons : Brésil central, Indonésie, Afrique australe...
+    # Two-season tropics: central Brazil, Indonesia, southern Africa...
     "tropical-south": (_months(wet="11 12 1 2 3 4", dry="5 6 7 8 9 10"), ("wet", "dry")),
-    # ... et Afrique sahélienne, Amérique centrale, Asie du Sud-Est continentale.
+    # ... and the Sahel, Central America, mainland Southeast Asia.
     "tropical-north": (_months(wet="5 6 7 8 9 10", dry="11 12 1 2 3 4"), ("wet", "dry")),
-    # Mousson d'Asie de l'Est, Chine du Sud-Est (Guangdong, Fujian, Hong Kong) : hiver doux, pluies de printemps,
-    # été humide et typhons, automne clair.
+    # East Asian monsoon, southeast China (Guangdong, Fujian, Hong Kong): mild winter, spring rains,
+    # humid summer and typhoons, clear autumn.
     "china-southeast": (_months(mild="12 1 2", plum="3 4 5", humid="6 7 8 9", clear="10 11"),
                         ("mild", "plum", "humid", "clear")),
-    # Japon (Honshu) : sakura, saison des pluies (tsuyu, de juin à mi-juillet), été, automne, hiver.
-    # Un mois peut être coupé en deux : (saison jusqu'au 15, saison après le 15).
+    # Japan (Honshu): sakura, rainy season (tsuyu, June to mid-July), summer, autumn, winter.
+    # A month can be split in two: (season up to the 15th, season after the 15th).
     "japan": ({12: "winter", 1: "winter", 2: "winter", 3: "sakura", 4: "sakura", 5: "spring", 6: "tsuyu",
                7: ("tsuyu", "summer"), 8: "summer", 9: ("summer", "autumn"), 10: "autumn", 11: "autumn"},
               ("sakura", "spring", "tsuyu", "summer", "autumn", "winter")),
 }
 CLIMATE = os.environ.get("GARDEN_CLIMATE", "").strip().lower()
-if not CLIMATE:  # GARDEN_HEMISPHERE reste accepté : c'est l'ancien nom du réglage tempéré
+if not CLIMATE:  # GARDEN_HEMISPHERE is still accepted: it is the old name of the temperate setting
     CLIMATE = "temperate-" + os.environ.get("GARDEN_HEMISPHERE", "north").strip().lower()
 if CLIMATE not in CLIMATES:
-    raise SystemExit(f"GARDEN_CLIMATE doit valoir {', '.join(CLIMATES)}, pas {CLIMATE!r}")
+    raise SystemExit(f"GARDEN_CLIMATE must be one of {', '.join(CLIMATES)}, not {CLIMATE!r}")
 SEASONS, LEGEND = CLIMATES[CLIMATE]
 LANG = os.environ.get("GARDEN_LANG", "fr").strip().lower()
 if LANG not in i18n.STRINGS:
-    raise SystemExit(f"GARDEN_LANG doit valoir {', '.join(i18n.STRINGS)}, pas {LANG!r}")
+    raise SystemExit(f"GARDEN_LANG must be one of {', '.join(i18n.STRINGS)}, not {LANG!r}")
 T = i18n.STRINGS[LANG]
 FONT_STACK = T["fonts"] + 'ui-sans-serif,system-ui,"Segoe UI",Helvetica,Arial,sans-serif'
 
 
 def say(key, **values):
-    """Phrase traduite avec ses zones de remplacement, échappée pour le SVG."""
+    """Translated sentence with its placeholders filled in, escaped for SVG."""
     return html.escape(T[key].format(**values), quote=False)
 
 
-# Par saison : couleurs (sol, tranche, feuillage, feuillage 2, accent) et façon de dessiner les plantes.
-# heads : fleurs possibles ; blossom/fruit : points sur les arbres ; tree : feuillu ou sapin ; shrub : arbuste
-# à la place de la fleur ; snow : neige sur les panneaux ; puddle : flaques sur les parcelles vides.
+# Per season: colors (ground, side, foliage, foliage 2, accent) and how plants are drawn.
+# heads: possible flower colors; blossom/fruit: dots on trees; tree: leafy or pine; shrub: shrub
+# instead of the flower; snow: snow on the panels; puddle: puddles on empty tiles.
 PALETTE = {
     "spring": dict(ground="#bfe28f", side="#93b86c", leaf="#8fd16a", leaf2="#6dbb5a", accent="#f6a6c1",
                    heads=("#f6a6c1",), blossom="#f6a6c1"),
@@ -84,21 +84,21 @@ PALETTE = {
                    heads=("#e8923a", "#d9482b")),
     "winter": dict(ground="#e9f1f5", side="#bccbd3", leaf="#2f6b4f", leaf2="#25573f", accent="#9ccbe8",
                    tree="pine", shrub=True, snow=True, sprout_leaf="#4f8f6c"),
-    # Asie du Sud
+    # South Asia
     "cool": dict(ground="#d9d58f", side="#aaa365", leaf="#7fa24f", leaf2="#678a3f", accent="#f2c230",
-                 heads=("#f2c230", "#ffffff")),  # champs de moutarde
+                 heads=("#f2c230", "#ffffff")),  # mustard fields
     "hot": dict(ground="#e2c48a", side="#b89a5e", leaf="#9aa84a", leaf2="#7f8c3d", accent="#e8532b",
-                heads=("#e8532b", "#ff9a1f"), blossom="#e8532b"),  # poussière et flamboyants
+                heads=("#e8532b", "#ff9a1f"), blossom="#e8532b"),  # dust and flame trees
     "monsoon": dict(ground="#5fb86a", side="#3f8f4f", leaf="#2f9e4f", leaf2="#1f7f3f", accent="#7ad0e8",
-                    heads=("#ff8fb1", "#ffffff"), puddle=True),  # lotus et flaques
+                    heads=("#ff8fb1", "#ffffff"), puddle=True),  # lotus and puddles
     "postmonsoon": dict(ground="#a8d86e", side="#7fae4e", leaf="#58b84a", leaf2="#3f9a3c", accent="#ffb300",
-                        heads=("#ffb300", "#ff7a00"), fruit="#ffb300"),  # soucis
-    # Tropiques à deux saisons
+                        heads=("#ffb300", "#ff7a00"), fruit="#ffb300"),  # marigolds
+    # Two-season tropics
     "wet": dict(ground="#5fb86a", side="#3f8f4f", leaf="#2f9e4f", leaf2="#1f7f3f", accent="#7ad0e8",
                 heads=("#ff8fb1", "#ffd54a", "#ffffff"), puddle=True),
     "dry": dict(ground="#dfc384", side="#b39a5a", leaf="#a8a24a", leaf2="#8a8a3d", accent="#e8923a",
                 heads=("#f2c230", "#e8923a")),
-    # Chine du Sud-Est : kumquats, bauhinias, litchis, osmanthus
+    # Southeast China: kumquats, bauhinias, lychees, osmanthus
     "mild": dict(ground="#a6d48e", side="#7fab69", leaf="#4fa65a", leaf2="#3a8a49", accent="#ff8fb1",
                  heads=("#ff8fb1", "#ffffff", "#e05aa0"), blossom="#ff8fb1", fruit="#ff9a1f"),
     "plum": dict(ground="#8fd0a0", side="#64a678", leaf="#3fae6a", leaf2="#2f8f58", accent="#e05aa0",
@@ -107,12 +107,12 @@ PALETTE = {
                   heads=("#ff8fb1", "#ffffff"), fruit="#e0334a", puddle=True),
     "clear": dict(ground="#bcd97c", side="#92ad56", leaf="#5dba4a", leaf2="#43a23a", accent="#ffd54a",
                   heads=("#ffd54a", "#ffb300"), fruit="#ff9a1f"),
-    # Japon : cerisiers en fleurs, hortensias de la saison des pluies (l'été, l'automne et l'hiver sont ceux du tempéré)
+    # Japan: cherry blossoms, rainy-season hydrangeas (summer, autumn and winter are the temperate ones)
     "sakura": dict(ground="#e0e6b0", side="#98b872", leaf="#f7c1d6", leaf2="#eea3c1", accent="#f6a6c1",
                    heads=("#f6a6c1", "#ffffff"), blossom="#ffffff", sprout_leaf="#7fc46a", tuft="#6dbb5a"),
     "tsuyu": dict(ground="#6fb59a", side="#4a8f78", leaf="#4aa88a", leaf2="#2f8a6f", accent="#8a9be8",
                   heads=("#8a9be8", "#b58be8", "#e88bc8"), puddle=True),
-    "earth": dict(ground="#c9a97a", side="#9c7e56", leaf="#a98a5d", leaf2="#a98a5d", accent="#a98a5d"),  # terre battue, jours à venir
+    "earth": dict(ground="#c9a97a", side="#9c7e56", leaf="#a98a5d", leaf2="#a98a5d", accent="#a98a5d"),  # packed earth, upcoming days
 }
 TRUNK = "#7a5636"
 PANEL = "#2f6fb5"
@@ -136,7 +136,7 @@ class Theme:
 
 
 def layout(n_years):
-    """Adapte la taille des parcelles pour que le parterre tienne dans W."""
+    """Scale the tiles so the whole bed fits in W."""
     global HW, HH, OX, OY, H, PLANT_K
     rows = n_years * ROWS_PER_YEAR
     HW = min(14, (W - 2 * MARGIN) / (COLS + rows))
@@ -147,7 +147,7 @@ def layout(n_years):
 
 
 def grid_pos(iso, years):
-    """Colonne = semaine de l'année, ligne = jour de la semaine, un bloc de 7 lignes par année."""
+    """Column = week of the year, row = day of the week, one block of 7 rows per year."""
     d = date.fromisoformat(iso)
     jan1 = date(d.year, 1, 1)
     col = ((d - jan1).days + (jan1.weekday() + 1) % 7) // 7
@@ -156,13 +156,13 @@ def grid_pos(iso, years):
 
 def season_of(iso):
     season = SEASONS[int(iso[5:7])]
-    if isinstance(season, tuple):  # mois coupé en deux
+    if isinstance(season, tuple):  # month split in two
         return season[0] if int(iso[8:]) <= 15 else season[1]
     return season
 
 
 def levels(days):
-    """Niveau 0-4 par jour, par quartiles des jours actifs."""
+    """Level 0-4 per day, by quartiles of the active days."""
     counts = sorted(d["count"] for d in days if d["count"] > 0)
     if not counts:
         return [0] * len(days)
@@ -208,7 +208,7 @@ def sprout(x, y, season, th, rng):
 
 def flower(x, y, season, th, rng):
     p = PALETTE[season]
-    if p.get("shrub"):  # arbuste persistant sous la neige
+    if p.get("shrub"):  # evergreen shrub under the snow
         return (circle(x, y - 4, 4.2, th.c(p["leaf"]))
                 + f'<ellipse cx="{f(x)}" cy="{f(y - 7)}" rx="3.6" ry="1.6" fill="{th.c("#ffffff")}"/>')
     return (line(x, y, x, y - 8, th.c("#4f9a4a"))
@@ -220,7 +220,7 @@ def tree(x, y, count_scale, season, th, rng):
     p = PALETTE[season]
     h = 9 + 5 * count_scale
     trunk = th.c(TRUNK)
-    if p.get("tree") == "pine":  # sapin enneigé
+    if p.get("tree") == "pine":  # snowy fir
         body = f'<rect x="{f(x - 1)}" y="{f(y - 4)}" width="2" height="4" fill="{trunk}"/>'
         for i, (w, off) in enumerate([(8, 4), (6, 4 + h * 0.35), (4, 4 + h * 0.7)]):
             ty = y - off
@@ -241,7 +241,7 @@ def tree(x, y, count_scale, season, th, rng):
 
 
 def turbine(x, y, count_scale, season, th, rng):
-    """Éolienne + panneau solaire : le plus haut niveau d'activité."""
+    """Wind turbine + solar panel: the highest activity level."""
     mast = 24 + 8 * count_scale
     top = y - mast
     white = th.c("#f4f7f5")
@@ -252,7 +252,7 @@ def turbine(x, y, count_scale, season, th, rng):
     out += (f'<g>{blades}<animateTransform attributeName="transform" type="rotate" '
             f'from="0 {f(x)} {f(top)}" to="360 {f(x)} {f(top)}" dur="{dur:.1f}s" repeatCount="indefinite"/></g>')
     out += circle(x, top, 1.6, th.c("#8fa39a"))
-    # panneau solaire incliné au pied du mât
+    # tilted solar panel at the foot of the mast
     px, py = x - 7, y + 1
     pts = f"{f(px - 5)},{f(py)} {f(px + 5)},{f(py - 3)} {f(px + 5)},{f(py + 2)} {f(px - 5)},{f(py + 5)}"
     panel = th.c("#ffffff") if PALETTE[season].get("snow") else th.c(PANEL)
@@ -277,14 +277,15 @@ def decor_tuft(x, y, season, th, rng):
     p = PALETTE[season]
     if p.get("snow"):
         return circle(x + rng.uniform(-4, 4), y + rng.uniform(-1, 1), 0.9, th.c("#ffffff"))
-    if p.get("puddle"):  # flaque de mousson
+    if p.get("puddle"):  # monsoon puddle
         return (f'<ellipse cx="{f(x)}" cy="{f(y)}" rx="4.2" ry="1.8" fill="{th.c("#7ab8d8")}" opacity=".75"/>')
     return line(x, y + 1, x, y - 2.5, th.c(p.get("tuft", p["leaf2"])), 1)
 
 
 def gardener(th, start, end, dur):
-    """Jardinier qui fait des allers-retours sur la parcelle du jour, dessiné autour de (0, 0).
-    start, end : points (x, y) du trajet en pixels, dur : durée de l'aller-retour. Ses couleurs sont moins assombries la nuit pour rester lisibles."""
+    """Gardener walking back and forth around today's tile, drawn around (0, 0).
+    start, end: (x, y) endpoints of the walk in pixels, dur: duration of the round trip.
+    Colors are darkened less at night so he stays readable."""
     def c(color):
         return mix(color, NIGHT, 0.2) if th.dark else color
     skin, shirt, overall, boots = c("#f0c7a0"), c("#fff3d6"), c("#3f7fbf"), c("#5a3b24")
@@ -297,7 +298,7 @@ def gardener(th, start, end, dur):
 
     walk = (f'<animateTransform attributeName="transform" type="translate" calcMode="linear" dur="{dur:.0f}s" repeatCount="indefinite" '
             f'values="{start[0]:.1f} {start[1]:.1f};{end[0]:.1f} {end[1]:.1f};{start[0]:.1f} {start[1]:.1f}"/>')
-    # demi-tour : discret, miroir pendant la deuxième moitié du trajet
+    # turn around: discrete, mirrored during the second half of the walk
     turn = (f'<animateTransform attributeName="transform" type="scale" calcMode="discrete" dur="{dur:.0f}s" repeatCount="indefinite" '
             'values="1 1;-1 1" keyTimes="0;.5"/>')
     return (
@@ -378,7 +379,7 @@ def render(data, dark):
     for d, level in zip(days, lv):
         col, row = grid_pos(d["date"], years)
         cells.append((col, row, d, level))
-    # Les jours pas encore écoulés de l'année en cours : terre battue jusqu'au 31 décembre.
+    # Days of the current year that have not happened yet: packed earth up to December 31.
     known = {d["date"] for d in days}
     for y in years:
         day = date(y, 1, 1)
@@ -396,12 +397,12 @@ def render(data, dark):
         cx, cy = OX + (c - r) * HW, OY + (c + r) * HH
         season = "earth" if level < 0 else season_of(d["date"])
         out.append(tile(cx, cy, season, th))
-        if d["date"] == today:  # la parcelle du jour pulse doucement
+        if d["date"] == today:  # today's tile pulses gently
             today_pos, today_cr = (cx, cy), (c, r)
             pts = f"{f(cx)},{f(cy - HH)} {f(cx + HW)},{f(cy)} {f(cx)},{f(cy + HH)} {f(cx - HW)},{f(cy)}"
             out.append(f'<polygon points="{pts}" fill="none" stroke="{"#ffe9a8" if dark else "#ffffff"}" stroke-width="1.8">'
                        '<animate attributeName="opacity" values=".3;.85;.3" dur="3s" repeatCount="indefinite"/></polygon>')
-        if level < 0:  # quelques cailloux sur la terre battue
+        if level < 0:  # a few pebbles on the packed earth
             if rng.random() < 0.25:
                 out.append(circle(cx + rng.uniform(-5, 5), cy + rng.uniform(-1.5, 1.5), 0.9, th.c("#8f7650")))
         elif level == 0:
@@ -415,13 +416,13 @@ def render(data, dark):
                 flies.append((cx + rng.uniform(-10, 10), cy - rng.uniform(10, 34), rng.uniform(-5, 0)))
     for x, y, delay in flies:
         out.append(f'<circle class="fly" cx="{f(x)}" cy="{f(y)}" r="1.3" fill="#fff3a0" style="animation-delay:{delay:.1f}s"/>')
-    # jardinier en dernier : il se promène sur environ trois parcelles autour du jour courant, devant les plantes
+    # gardener last: he strolls over about three tiles around today, in front of the plants
     cx, cy = today_pos
-    # Le trajet suit l'axe des semaines mais s'arrête au dernier carré existant : début et fin d'année,
-    # il ne sort donc jamais du terrain (la première semaine peut aussi être partielle).
+    # The walk follows the week axis but stops at the last existing tile: at the start and end of the
+    # year he never leaves the field (the first and last weeks can be partial).
     have = {(c, r) for c, r, _, _ in cells}
     tc, tr = today_cr
-    reach = [0, 0]  # nombre de pas possibles en arrière puis en avant, 1,6 au plus
+    reach = [0, 0]  # possible steps backward then forward, 1.6 at most
     for i, step in enumerate((-1, 1)):
         while reach[i] + 1 <= 1.6 and (tc + step * (reach[i] + 1), tr) in have:
             reach[i] += 1
@@ -433,11 +434,11 @@ def render(data, dark):
     out.append(f'<g transform="translate({f(cx)} {f(cy + HH * 0.2)}) scale({k:.2f})">{gardener(th, start, end, dur)}</g>')
     out.append(today_label(cx, cy - 44, today, th))
 
-    # en-tête et légende
+    # header and legend
     out.append(f'<text x="30" y="46" font-size="22" font-weight="700" fill="{th.text}">{say("title", login=data["login"])}</text>')
     out.append(f'<text x="30" y="68" font-size="13" fill="{th.text}" opacity=".8">'
                f'{say("subtitle", total=i18n.number(data["total"], LANG), first=years[0], last=years[-1])}</text>')
-    for i, y in enumerate(years):  # étiquette d'année le long du bord gauche
+    for i, y in enumerate(years):  # year label along the left edge
         mid = i * ROWS_PER_YEAR + 3
         out.append(f'<text x="{f(OX - mid * HW - 2 * HW)}" y="{f(OY + mid * HH + 4)}" font-size="14" font-weight="700" '
                    f'text-anchor="end" fill="{th.text}" opacity=".85">{y}</text>')
@@ -458,7 +459,7 @@ def main():
     out_dir.mkdir(exist_ok=True)
     for name, dark in (("garden-light.svg", False), ("garden-dark.svg", True)):
         (out_dir / name).write_text(render(data, dark), encoding="utf-8")
-        print("écrit", out_dir / name)
+        print("wrote", out_dir / name)
 
 
 if __name__ == "__main__":
