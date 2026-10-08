@@ -37,8 +37,10 @@ Aucune dépendance, Python 3 suffit. `GITHUB_LOGIN` change le compte lu (par dé
 | `monsoon` | saison fraîche (déc. à fév.), chaude (mars à mai), mousson (juin à sept.), après-mousson (oct. et nov.) | Inde, Bangladesh, Sri Lanka, Népal |
 | `tropical-south` | pluies (nov. à avril), sèche (mai à oct.) | Brésil central, Indonésie, Afrique australe |
 | `tropical-north` | pluies (mai à oct.), sèche (nov. à avril) | Sahel, Amérique centrale, Asie du Sud-Est continentale |
+| `china-southeast` | hiver doux (déc. à fév.), pluies de printemps (mars à mai), été humide et typhons (juin à sept.), automne clair (oct. et nov.) | Guangdong, Fujian, Hong Kong, Shenzhen |
+| `japan` | sakura (mars et avril), printemps (mai), tsuyu (juin à mi-juillet), été, automne (dès la mi-septembre), hiver | Honshu : Tokyo, Kyoto, Osaka |
 
-Les mois sont des moyennes : une région précise (côte est de l'Inde, Kerala...) peut avoir ses pluies à d'autres dates.
+Les mois sont des moyennes (au Japon, juillet et septembre sont coupés au 15) : une région précise (côte est de l'Inde, Kerala...) peut avoir ses pluies à d'autres dates.
 
 ## Mise en ligne
 
