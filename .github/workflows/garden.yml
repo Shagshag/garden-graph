@@ -2,7 +2,10 @@ name: Update garden
 
 on:
   schedule:
+    # Scheduled runs are best-effort on GitHub and can be delayed or skipped: a second daily run
+    # catches up, and it costs nothing since the job only commits when something changed.
     - cron: "17 5 * * *"
+    - cron: "47 17 * * *"
   workflow_dispatch:
 
 permissions:
