@@ -258,8 +258,9 @@ def turbine(x, y, count_scale, season, th, rng):
     blades = "".join(line(x, top, x + 7.5 * math.cos(math.radians(a)), top + 7.5 * math.sin(math.radians(a)), white, 1.6)
                      for a in (-90, 30, 150))
     out = line(x, y, x, top, th.c("#d7dfdb"), 1.8)
-    out += (f'<g>{blades}<animateTransform attributeName="transform" type="rotate" '
-            f'from="0 {f(x)} {f(top)}" to="360 {f(x)} {f(top)}" dur="{dur:.1f}s" repeatCount="indefinite"/></g>')
+    # the invisible circle makes the group's bounding box centered on the hub, so fill-box rotates around it
+    out += (f'<g class="spin" style="animation-duration:{dur:.1f}s"><circle cx="{f(x)}" cy="{f(top)}" r="7.5" fill="none"/>'
+            f'{blades}</g>')
     out += circle(x, top, 1.6, th.c("#8fa39a"))
     # tilted solar panel at the foot of the mast
     px, py = x - 7, y + 1
@@ -300,22 +301,20 @@ def gardener(th, start, end, dur):
     skin, shirt, overall, boots = c("#f0c7a0"), c("#fff3d6"), c("#3f7fbf"), c("#5a3b24")
     hat, band, can = c("#e8c36a"), c("#c4552b"), c("#4aa6a0")
 
-    def leg(x, values):
-        return (f'<g><animateTransform attributeName="transform" type="rotate" values="{values}" dur="1.1s" repeatCount="indefinite"/>'
+    def leg(x, cls):
+        return (f'<g class="{cls}">'
                 f'<rect x="{x}" y="-7" width="2.3" height="5.2" fill="{overall}"/>'
                 f'<rect x="{x - .2}" y="-2" width="2.7" height="2" rx=".6" fill="{boots}"/></g>')
 
-    walk = (f'<animateTransform attributeName="transform" type="translate" calcMode="linear" dur="{dur:.0f}s" repeatCount="indefinite" '
-            f'values="{start[0]:.1f} {start[1]:.1f};{end[0]:.1f} {end[1]:.1f};{start[0]:.1f} {start[1]:.1f}"/>')
-    # turn around: discrete, mirrored during the second half of the walk
-    turn = (f'<animateTransform attributeName="transform" type="scale" calcMode="discrete" dur="{dur:.0f}s" repeatCount="indefinite" '
-            'values="1 1;-1 1" keyTimes="0;.5"/>')
+    # the walk, the turn around (mirrored during the second half) and the legs are CSS animations, see STYLE
+    walk = (f'style="--x0:{start[0]:.1f}px;--y0:{start[1]:.1f}px;--x1:{end[0]:.1f}px;--y1:{end[1]:.1f}px;'
+            f'animation-duration:{dur:.0f}s"')
     return (
-        f'<g>{walk}'
+        f'<g class="walk" {walk}>'
         '<ellipse cx="0" cy="1" rx="6" ry="2" fill="#000" opacity=".18"/>'
-        f'<g>{turn}'
-        '<g><animateTransform attributeName="transform" type="translate" values="0 0;0 -.6;0 0" dur=".55s" repeatCount="indefinite"/>'
-        + leg(-2.8, "-18 -1.7 -7;18 -1.7 -7;-18 -1.7 -7") + leg(.5, "18 1.7 -7;-18 1.7 -7;18 1.7 -7") +
+        f'<g class="turn" style="animation-duration:{dur:.0f}s">'
+        '<g class="bob">'
+        + leg(-2.8, "leg") + leg(.5, "leg b") +
         f'<rect x="-3.4" y="-14.5" width="6.8" height="8" rx="1.2" fill="{overall}"/>'
         f'<rect x="-3.4" y="-14.5" width="6.8" height="3" rx="1" fill="{shirt}"/>'
         f'<line x1="-3.4" y1="-13" x2="-5" y2="-8.5" stroke="{shirt}" stroke-width="1.8" stroke-linecap="round"/>'
@@ -368,10 +367,24 @@ STYLE = """
 @keyframes sway{0%,100%{transform:rotate(-1.6deg)}50%{transform:rotate(1.6deg)}}
 .cloud{animation:drift linear infinite}
 @keyframes drift{from{transform:translateX(-120px)}to{transform:translateX(220px)}}
+.spin{transform-box:fill-box;transform-origin:50% 50%;animation:spin linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.pulse{animation:pulse 3s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:.85}}
+.walk{animation:walk linear infinite}
+@keyframes walk{0%,100%{transform:translate(var(--x0),var(--y0))}50%{transform:translate(var(--x1),var(--y1))}}
+.turn{animation:turn linear infinite}
+@keyframes turn{0%,49.99%{transform:scaleX(1)}50%,100%{transform:scaleX(-1)}}
+.bob{animation:bob .55s ease-in-out infinite}
+@keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-.6px)}}
+.leg{transform-box:fill-box;transform-origin:50% 0;animation:leg 1.1s ease-in-out infinite}
+.leg.b{animation-delay:-.55s}
+@keyframes leg{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
 .twinkle{animation:tw 4s ease-in-out infinite}
 @keyframes tw{0%,100%{opacity:.25}50%{opacity:1}}
 .fly{animation:fly 3.5s ease-in-out infinite}
 @keyframes fly{0%,100%{opacity:0}50%{opacity:1}}
+/* every animation is CSS (none is SMIL, which this rule could not stop) */
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 """
 
@@ -437,8 +450,7 @@ def render(data, dark, year=None, compact=False):
         if d["date"] == today:  # today's tile pulses gently
             today_pos, today_cr = (cx, cy), (c, r)
             pts = f"{f(cx)},{f(cy - HH)} {f(cx + HW)},{f(cy)} {f(cx)},{f(cy + HH)} {f(cx - HW)},{f(cy)}"
-            out.append(f'<polygon points="{pts}" fill="none" stroke="{"#ffe9a8" if dark else "#ffffff"}" stroke-width="1.8">'
-                       '<animate attributeName="opacity" values=".3;.85;.3" dur="3s" repeatCount="indefinite"/></polygon>')
+            out.append(f'<polygon points="{pts}" fill="none" stroke="{"#ffe9a8" if dark else "#ffffff"}" stroke-width="1.8" opacity=".7" class="pulse"/>')
         if level < 0:  # a few pebbles on the packed earth
             if rng.random() < 0.25:
                 out.append(circle(cx + rng.uniform(-5, 5), cy + rng.uniform(-1.5, 1.5), 0.9, th.c("#8f7650")))

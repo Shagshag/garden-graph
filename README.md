@@ -31,7 +31,7 @@ Your GitHub contribution graph, turned into an isometric solarpunk garden. One t
 | quartile 3 | tree (fir in winter) |
 | quartile 4 | wind turbine and solar panel |
 
-Days that have not happened yet are packed earth. The output is plain SVG with CSS and SMIL animations, so it works in a GitHub profile README: a light and a dark version, picked with `<picture>`.
+Days that have not happened yet are packed earth. The output is plain SVG with CSS animations, so it works in a GitHub profile README. Every animation stops for visitors whose system asks for reduced motion (`prefers-reduced-motion`), and the garden is then a still picture: a light and a dark version, picked with `<picture>`.
 
 Two views are generated: `garden-year-*.svg`, the current year only, folded into two half-years so the tiles are big and readable, and `garden-*.svg`, the overview of the last `GARDEN_YEARS` years, where tiles are smaller. Embed one or both, as above.
 
@@ -101,7 +101,7 @@ Votre graphe de contributions GitHub, transformé en jardin solarpunk isométriq
 | quartile 3 | arbre (sapin en hiver) |
 | quartile 4 | éolienne et panneau solaire |
 
-Les jours à venir sont en terre battue. Le résultat est un SVG avec animations CSS et SMIL, qui s'affiche dans le README d'un profil GitHub, en version claire et sombre via `<picture>`.
+Les jours à venir sont en terre battue. Le résultat est un SVG avec animations CSS, qui s'affiche dans le README d'un profil GitHub. Toutes les animations s'arrêtent pour les visiteurs dont le système demande une réduction des animations (`prefers-reduced-motion`), le jardin devient alors une image fixe, en version claire et sombre via `<picture>`.
 
 Deux vues sont générées : `garden-year-*.svg`, l'année en cours seule, repliée en deux semestres pour que les parcelles soient grandes et lisibles, et `garden-*.svg`, la vue d'ensemble des `GARDEN_YEARS` dernières années, aux parcelles plus petites. Intégrez l'une ou les deux, comme ci-dessus.
 
