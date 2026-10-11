@@ -52,6 +52,15 @@ python render.py  # write the SVGs in assets/ (year, overview and mobile views, 
 
 Locally, the username comes from `GITHUB_LOGIN`, otherwise from your `gh` session. To also count private contributions, add a secret `GH_STATS_TOKEN` (a token with `read:user`) and enable "Private contributions" in your profile settings.
 
+### Animations
+
+If the garden looks frozen, your device is probably asking for reduced motion, and the SVG honors it on purpose: every animation stops. To see them move, turn that setting off:
+
+- Android: Settings > Accessibility > Remove animations (on some phones under "Visibility enhancements").
+- iOS and iPadOS: Settings > Accessibility > Motion > Reduce Motion.
+- macOS: System Settings > Accessibility > Display > Reduce motion.
+- Windows 11: Settings > Accessibility > Visual effects > Animation effects.
+
 ### Settings
 
 All settings are environment variables.
@@ -121,6 +130,15 @@ python render.py  # écrit les SVG dans assets/ (vues année, ensemble et mobile
 ```
 
 En local, le nom d'utilisateur vient de `GITHUB_LOGIN`, sinon de votre session `gh`. Pour compter aussi les contributions privées, ajoutez un secret `GH_STATS_TOKEN` (token avec `read:user`) et activez « Private contributions » dans les réglages du profil.
+
+### Animations
+
+Si le jardin semble figé, votre appareil demande probablement une réduction des animations, et le SVG la respecte volontairement : toutes les animations s'arrêtent. Pour les voir bouger, désactivez ce réglage :
+
+- Android : Paramètres > Accessibilité > Supprimer les animations (sur certains téléphones sous « Améliorations de la visibilité »).
+- iOS et iPadOS : Réglages > Accessibilité > Animation > Réduire les animations.
+- macOS : Réglages Système > Accessibilité > Affichage > Réduire les animations.
+- Windows 11 : Paramètres > Accessibilité > Effets visuels > Effets d'animation.
 
 ### Réglages
 
